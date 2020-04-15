@@ -1,5 +1,6 @@
 from RoadTypes import Segment, Point
 from Constants import *
+from Utils import *
 import noise
 import math
 import random
@@ -42,9 +43,15 @@ class City(object):
         )
 
     def segmentBranch(self, previousSegment, dir):
+        delay = 0
+        if previousSegment.q['highway']:
+            delay = NORMAL_BRANCH_TIME_DELAY_FROM_HIGHWAY
+        else:
+            delay = NORMAL_BRANCH_TIME_DELAY_FROM_STREET
+
         return self.segmentUsingDirection(
             previousSegment.r.end,
-            NORMAL_BRANCH_TIME_DELAY_FROM_HIGHWAY if previousSegment.q['highway'] else 0,
+            delay,
             {'highway': False},
             dir,
             DEFAULT_SEGMENT_LENGTH
@@ -95,13 +102,48 @@ class City(object):
         return newBranches
 
     def localConstraints(self, segment, segments):
-        return True
+        # return True
         # TODO
-        matchSegments = self.spindex.intersect()
-        for segment in matchSegments:
-            pass
-        # 1. intersection check
-        # 2. snap to crossing within radius check
+
+        minx, miny, maxx, maxy = segment.getBox()
+        matchSegments = self.spindex.intersect(
+            (minx - ROAD_SNAP_DISTANCE,
+            miny - ROAD_SNAP_DISTANCE,
+            maxx + ROAD_SNAP_DISTANCE,
+            maxy + ROAD_SNAP_DISTANCE)
+        )
+        
+        for other in matchSegments:
+            minDegree = min_intersect_degree(other.getDir(), segment.getDir())
+
+            # if minDegree < EPSILON:
+            #     d1 = segment.r.start.distance(other.r)
+            #     d2 = segment.r.end.distance(other.r)
+            #     if min([d1, d2]) < EPSILON:
+            #         if d1 < d2:
+            #             if not segment.r.start.equal(other.r.start) and not segment.r.start.equal(other.r.end):
+            #                 return False
+            #         else:
+            #             if not segment.r.end.equal(other.r.start) and not segment.r.end.equal(other.r.end):
+            #                 return False
+              
+            # 1. intersection check
+            cross = line_cross([segment.r.start, segment.r.end], [other.r.start, other.r.end])
+            if cross != False:
+                if not cross.equal(segment.r.start) and not cross.equal(segment.r.end):
+                    # cross other line with small angle
+                    if minDegree < MINIMUM_INTERSECTION_DEVIATION:
+                        return False
+
+                    segment.r.end = cross
+                    segment.q['severed'] = True
+
+            # 2. snap to crossing within radius check
+            # if not segment.r.end.equal(other.r.end) and segment.r.end.distance(other.r.end) <= ROAD_SNAP_DISTANCE:
+            #     segment.r.end = other.r.end
+            #     segment.q['severed'] = True
+
+        return True
         # 3. intersection within radius check
 
     def generate(self):
@@ -144,15 +186,7 @@ class City(object):
 
     def appendSegment(self, segment):
         self.segments.append(segment)
-
-        x1 = segment.r.start.x
-        x2 = segment.r.end.x
-        y1 = segment.r.start.y
-        y2 = segment.r.end.y
-        self.spindex.insert(
-            segment,
-            (min([x1, x2]), min([y1, y2]), max([x1, x2]), max([y1, y2]))
-        )
+        self.spindex.insert(segment,(segment.getBox()))
 
 
 class HeatMap(object):

@@ -7,8 +7,9 @@ import time
 city = City()
 city.generate()
 
+print(len(city.segments))
 # plt.axis([-5000, 5000, -5000, 5000])
-plt.ion()
+# plt.ion()
 
 for segment in city.segments:
     if segment.q['highway']:
@@ -28,5 +29,6 @@ for segment in city.segments:
             color = 'b'
         )
     # time.sleep(0.1)
-    plt.draw()
-    plt.pause(0.0001)
+    # plt.draw()
+    # plt.pause(0.0001)
+plt.show()

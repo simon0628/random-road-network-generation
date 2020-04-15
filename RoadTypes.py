@@ -29,14 +29,12 @@ class Point(object):
     def distance(self, t):
         if isinstance(t, Point):
             return math.sqrt((t.y - self.y)**2 + (t.x - self.x)**2)
-        elif isinstance(t, Segment):
-            y1 = t.start_p.y
-            y2 = t.end_p.y
-            x1 = t.start_p.x
-            x2 = t.end_p.x
-            x0 = self.x
-            y0 = self.y
-            return (math.fabs((y2 - y1) * x0 +(x1 - x2) * y0 + ((x2 * y1) -(x1 * y2)))) / (math.sqrt(pow(y2 - y1, 2) + pow(x1 - x2, 2)));
+        elif isinstance(t, Road):
+            a=t.end.y-t.start.y
+            b=t.start.x-t.end.x
+            c=t.end.x*t.start.y-t.start.x*t.end.y
+            dis=(math.fabs(a*self.x+b*self.y+c))/(math.pow(a*a+b*b,0.5))
+            return dis
 
 class Road(object):
     def __init__(self, start, end):
@@ -85,8 +83,14 @@ class Segment(object):
         else:
             sign = -1
 
-        self.cachedDir = -1 * sign * Point(0, 1).angleBetween(vector)
-        return self.cachedDir
+        return -1 * sign * Point(0, 1).angleBetween(vector)
+
+    def getBox(self):
+        x1 = self.r.start.x
+        x2 = self.r.end.x
+        y1 = self.r.start.y
+        y2 = self.r.end.y
+        return min([x1, x2]), min([y1, y2]), max([x1, x2]), max([y1, y2])
 
     def startIsBackwards(self):
         if len(self.predecessor) > 0:
