@@ -20,14 +20,9 @@ class City(object):
             QUADTREE_PARAMS_Y + QUADTREE_PARAMS_H
         ))
 
-    
-    def direction_offset(self, limit):
-        # rand in [-limit, limit]
-        return limit * (random.random() - 0.5) * 2
-
     def segmentUsingDirection(self, start, t, q, dir, length):
         if length is None:
-            length = STREET_SEGMENT_WIDTH
+            length = STREET_SEGMENT_LENGTH
         # default to east
         end = Point(
             start.x + length*math.sin(math.radians(dir)),
@@ -44,25 +39,36 @@ class City(object):
             previous_segment.length
         )
 
-    def segmentBranch(self, previous_segment, dir):
-        delay = 0
+    def gen_segment_branch(self, previous_segment, dir):
         if previous_segment.q['highway']:
-            delay = NORMAL_BRANCH_TIME_DELAY_FROM_HIGHWAY
+            if random.random() < HIGHWAY_DEGENERATE_PROBABILITY:
+                return self.segmentUsingDirection(
+                            previous_segment.r.end,
+                            BRANCH_TIME_DELAY_HIGHWAY,
+                            {'highway': False},
+                            dir,
+                            STREET_SEGMENT_LENGTH + rand_in_limit(STREET_SEGMENT_LENGTH_OFFSET_LIMIT)
+                        )
+            else:
+                return self.segmentUsingDirection(
+                            previous_segment.r.end,
+                            BRANCH_TIME_DELAY_HIGHWAY,
+                            {'highway': True},
+                            dir,
+                            HIGHWAY_SEGMENT_LENGTH + rand_in_limit(HIGHWAY_SEGMENT_LENGTH_OFFSET_LIMIT)
+                        )
         else:
-            delay = NORMAL_BRANCH_TIME_DELAY_FROM_STREET
-
-        return self.segmentUsingDirection(
-            previous_segment.r.end,
-            delay,
-            {'highway': False},
-            dir,
-            STREET_SEGMENT_LENGTH
-        )
+            return self.segmentUsingDirection(
+                        previous_segment.r.end,
+                        BRANCH_TIME_DELAY_STREET,
+                        {'highway': False},
+                        dir,
+                        STREET_SEGMENT_LENGTH + rand_in_limit(STREET_SEGMENT_LENGTH_OFFSET_LIMIT)
+                    )
 
     def globalGoals(self, previous_segment):
-        newBranches = list()
+        proposed_segments = list()
         if 'snapped' not in previous_segment.q or not previous_segment.q['snapped']:
-
 
             if previous_segment.q['highway']:
                 max_heat = None
@@ -75,36 +81,37 @@ class City(object):
                         max_heat = heat
                         max_heat_offset = offset
                 curve_follow_segment = self.gen_segment_follow(
-                        previous_segment, previous_segment.dir() + max_heat_offset)
-                newBranches.append(curve_follow_segment)
+                    previous_segment, previous_segment.dir() + max_heat_offset)
+                proposed_segments.append(curve_follow_segment)
 
                 if max_heat > HIGHWAY_BRANCH_HEAT_THRESHOLD:
-                    if random.random() < HIGHWAY_BRANCH_RIGHT_PROBABILITY:
-                        leftHighwayBranch = self.gen_segment_follow(
-                            previous_segment, previous_segment.dir() - 90 + self.direction_offset(BRANCH_DIRECTION_OFFSET_LIMIT))
-                        newBranches.append(leftHighwayBranch)
+                    if rand_hit_thershold(HIGHWAY_BRANCH_RIGHT_PROBABILITY):
+                        leftHighwayBranch = self.gen_segment_branch(
+                            previous_segment, previous_segment.dir() - 90 + rand_in_limit(BRANCH_DIRECTION_OFFSET_LIMIT))
+                        proposed_segments.append(leftHighwayBranch)
                     else:
-                        rightHighwayBranch = self.gen_segment_follow(
-                            previous_segment, previous_segment.dir() + 90 + self.direction_offset(BRANCH_DIRECTION_OFFSET_LIMIT))
-                        newBranches.append(rightHighwayBranch)
+                        rightHighwayBranch = self.gen_segment_branch(
+                            previous_segment, previous_segment.dir() + 90 + rand_in_limit(BRANCH_DIRECTION_OFFSET_LIMIT))
+                        proposed_segments.append(rightHighwayBranch)
             else:
                 straight_follow_segment = self.gen_segment_follow(
                     previous_segment, previous_segment.dir())
-                straight_heat = self.heatmap.road_heat(straight_follow_segment.r)
+                straight_heat = self.heatmap.road_heat(
+                    straight_follow_segment.r)
 
                 if straight_heat > NORMAL_BRANCH_POPULATION_THRESHOLD:
-                    newBranches.append(straight_follow_segment)
+                    proposed_segments.append(straight_follow_segment)
 
-                    if random.random() < STREET_BRANCH_RIGHT_PROBABILITY:
-                        leftBranch = self.segmentBranch(previous_segment, previous_segment.dir(
-                        ) - 90 + self.direction_offset(BRANCH_DIRECTION_OFFSET_LIMIT))
-                        newBranches.append(leftBranch)
+                    if rand_hit_thershold(STREET_BRANCH_RIGHT_PROBABILITY):
+                        leftBranch = self.gen_segment_branch(previous_segment, previous_segment.dir(
+                        ) - 90 + rand_in_limit(BRANCH_DIRECTION_OFFSET_LIMIT))
+                        proposed_segments.append(leftBranch)
                     else:
-                        rightBranch = self.segmentBranch(previous_segment, previous_segment.dir(
-                        ) + 90 + self.direction_offset(BRANCH_DIRECTION_OFFSET_LIMIT))
-                        newBranches.append(rightBranch)
+                        rightBranch = self.gen_segment_branch(previous_segment, previous_segment.dir(
+                        ) + 90 + rand_in_limit(BRANCH_DIRECTION_OFFSET_LIMIT))
+                        proposed_segments.append(rightBranch)
 
-        return newBranches
+        return proposed_segments
 
     def localConstraints(self, segment, segments):
         # return True

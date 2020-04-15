@@ -1,5 +1,6 @@
 from math import fabs, sqrt
 from RoadTypes import Point
+import random
 
 def point_distance(pointa, pointb):
     return sqrt((pointa.x - pointb.x) ** 2 + (pointa.y - pointb.y) ** 2)
@@ -44,3 +45,13 @@ def point_projection(a, b, p):
         a.y + ab.y * k
     )
     return result
+
+def rand_in_limit(limit):
+    # rand in [-limit, limit]
+    return limit * (random.random() - 0.5) * 2
+
+def rand_hit_thershold(thershold):
+    if random.random() < thershold:
+        return True
+    else:
+        return False
