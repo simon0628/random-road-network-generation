@@ -20,7 +20,7 @@ class City(object):
             QUADTREE_PARAMS_Y + QUADTREE_PARAMS_H
         ))
 
-    def gen_segment(self, start, t, q, dir, length, width = None):
+    def gen_segment(self, start, t, q, dir, length, width=None):
         end = Point(
             start.x + length*math.sin(math.radians(dir)),
             start.y + length*math.cos(math.radians(dir))
@@ -30,7 +30,7 @@ class City(object):
     def gen_segment_follow(self, previous_segment, dir):
         return self.gen_segment(
             previous_segment.r.end,
-            0,
+            STRENCH_TIME_DELAY_HIGHWAY if previous_segment.q['highway'] else STRENCH_TIME_DELAY_STREET,
             previous_segment.q,
             dir,
             previous_segment.length,
@@ -41,28 +41,31 @@ class City(object):
         if previous_segment.q['highway']:
             if rand_hit_thershold(HIGHWAY_DEGENERATE_PROBABILITY):
                 return self.gen_segment(
-                            previous_segment.r.end,
-                            BRANCH_TIME_DELAY_HIGHWAY,
-                            {'highway': False},
-                            dir,
-                            STREET_SEGMENT_LENGTH + rand_in_limit(STREET_SEGMENT_LENGTH_OFFSET_LIMIT)
-                        )
+                    previous_segment.r.end,
+                    BRANCH_TIME_DELAY_HIGHWAY,
+                    {'highway': False},
+                    dir,
+                    STREET_SEGMENT_LENGTH +
+                    rand_in_limit(STREET_SEGMENT_LENGTH_OFFSET_LIMIT)
+                )
             else:
                 return self.gen_segment(
-                            previous_segment.r.end,
-                            BRANCH_TIME_DELAY_HIGHWAY,
-                            {'highway': True},
-                            dir,
-                            HIGHWAY_SEGMENT_LENGTH + rand_in_limit(HIGHWAY_SEGMENT_LENGTH_OFFSET_LIMIT)
-                        )
+                    previous_segment.r.end,
+                    BRANCH_TIME_DELAY_HIGHWAY,
+                    {'highway': True},
+                    dir,
+                    HIGHWAY_SEGMENT_LENGTH +
+                    rand_in_limit(HIGHWAY_SEGMENT_LENGTH_OFFSET_LIMIT)
+                )
         else:
             return self.gen_segment(
-                        previous_segment.r.end,
-                        BRANCH_TIME_DELAY_STREET,
-                        {'highway': False},
-                        dir,
-                        STREET_SEGMENT_LENGTH + rand_in_limit(STREET_SEGMENT_LENGTH_OFFSET_LIMIT)
-                    )
+                previous_segment.r.end,
+                BRANCH_TIME_DELAY_STREET,
+                {'highway': False},
+                dir,
+                STREET_SEGMENT_LENGTH +
+                rand_in_limit(STREET_SEGMENT_LENGTH_OFFSET_LIMIT)
+            )
 
     def globalGoals(self, previous_segment):
         proposed_segments = list()
@@ -82,7 +85,7 @@ class City(object):
                     previous_segment, previous_segment.dir() + max_heat_offset)
                 proposed_segments.append(curve_follow_segment)
 
-                if max_heat > HIGHWAY_BRANCH_HEAT_THRESHOLD:
+                if max_heat > HIGHWAY_BRANCH_HEAT_THRESHOLD or rand_hit_thershold(HIGHWAY_BRANCH_PROBABILITY):
                     if rand_hit_thershold(HIGHWAY_BRANCH_RIGHT_PROBABILITY):
                         leftHighwayBranch = self.gen_segment_branch(
                             previous_segment, previous_segment.dir() - 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT))
@@ -97,7 +100,7 @@ class City(object):
                     previous_segment, previous_segment.dir() + rand_in_limit(STREET_CURVE_DIRECTION_OFFSET_LIMIT))
                 straight_heat = self.heatmap.road_heat(
                     straight_follow_segment.r)
-                if straight_heat > NORMAL_BRANCH_POPULATION_THRESHOLD:
+                if straight_heat > STREET_HEAT_THRESHOLD:
                     proposed_segments.append(straight_follow_segment)
 
                 if rand_hit_thershold(STREET_BRANCH_PROBABILITY):
@@ -114,7 +117,6 @@ class City(object):
 
     def localConstraints(self, segment, segments):
         # return True
-        
         minx, miny, maxx, maxy = segment.getBox()
         matchSegments = self.spindex.intersect(
             (minx - ROAD_SNAP_DISTANCE,
@@ -124,7 +126,7 @@ class City(object):
         )
 
         for other in matchSegments:
-            minDegree = min_intersect_degree(other.dir(), segment.dir())
+            degree = min_intersect_degree(other.dir(), segment.dir())
 
             # 1. intersection check
             cross = line_cross([segment.r.start, segment.r.end], [
@@ -132,7 +134,7 @@ class City(object):
             if cross != False:
                 if not cross.equal(segment.r.start) and not cross.equal(segment.r.end):
                     # cross other line with small angle
-                    if minDegree < MINIMUM_INTERSECTION_DEVIATION:
+                    if degree < MINIMUM_INTERSECTION_DEVIATION:
                         return False
 
                     segment.r.end = cross
@@ -147,7 +149,7 @@ class City(object):
                 # 3. intersection within radius check
                 distance = distance_p2l(segment.r.end, other.r)
                 if distance <= ROAD_SNAP_DISTANCE and distance > EPSILON:
-                    if minDegree >= MINIMUM_INTERSECTION_DEVIATION:
+                    if degree >= MINIMUM_INTERSECTION_DEVIATION:
                         project_point = point_projection(
                             segment.r.end, other.e.start, other.r.end)
                         segment.r.end = project_point
@@ -155,72 +157,46 @@ class City(object):
         return True
 
     def generate(self):
-        priorityQ = list()
+        priority_queue = list()
 
-        rootSegment = Segment(Point(0, 0), Point(
+        init_segment = Segment(Point(0, 0), Point(
             HIGHWAY_SEGMENT_LENGTH, 0), 0, {'highway': True})
-        oppositeDirection = Segment(
+        second_segment = Segment(
             Point(0, 0), Point(-HIGHWAY_SEGMENT_LENGTH, 0), 0, {'highway': True})
-        priorityQ.append(rootSegment)
-        priorityQ.append(oppositeDirection)
+        priority_queue.append(init_segment)
+        priority_queue.append(second_segment)
 
-        while len(priorityQ) > 0 and len(self.segments) < SEGMENT_COUNT_LIMIT:
+        while len(priority_queue) > 0 and len(self.segments) < SEGMENT_COUNT_LIMIT:
             # pop smallest r(ti, ri, qi) from Q
-            minT = None
-            minT_i = 0
-            for i, segment in enumerate(priorityQ):
-                if minT is None or segment.t < minT:
-                    minT = segment.t
-                    minT_i = i
+            min_t = None
+            min_index = 0
+            for i, segment in enumerate(priority_queue):
+                if min_t is None or segment.t < min_t:
+                    min_t = segment.t
+                    min_index = i
 
-            minSegment = priorityQ.pop(minT_i)
-            accepted = self.localConstraints(minSegment, self.segments)
+            min_segment = priority_queue.pop(min_index)
+            accepted = self.localConstraints(min_segment, self.segments)
             if accepted:
-                self.appendSegment(minSegment)
-                newSegments = self.globalGoals(minSegment)
+                self.append_segment(min_segment)
+                newSegments = self.globalGoals(min_segment)
                 for i, newSegment in enumerate(newSegments):
-                    newSegments[i].t = minSegment.t + 1 + newSegments[i].t
-                    priorityQ.append(newSegment)
+                    newSegments[i].t = min_segment.t + 1 + newSegments[i].t
+                    priority_queue.append(newSegment)
 
-    def appendSegment(self, segment):
+    def append_segment(self, segment):
         self.segments.append(segment)
         self.spindex.insert(segment, (segment.getBox()))
 
 
 class HeatMap(object):
     def road_heat(self, r):
-        return (self.populationAt(r.start.x, r.start.y) + self.populationAt(r.end.x, r.end.y))/2
+        return (self.population(r.start.x, r.start.y) + self.population(r.end.x, r.end.y))/2
 
-    def populationAt(self, x, y):
+    def population(self, x, y):
         value1 = (noise.snoise2(x/10000, y/10000) + 1) / 2
         value2 = (noise.snoise2(x/20000 + 500, y/20000 + 500) + 1) / 2
         value3 = (noise.snoise2(x/20000 + 1000, y/20000 + 1000) + 1) / 2
         return pow((value1 * value2 + value3) / 2, 2)
 
 
-# class City(object):
-#     # self.xmin = 0
-#     # self.xmax = 0
-#     # self.ymin = 0
-#     # self.ymax = 0
-#     def __init__(self):
-#         super(City, self).__init__()
-#         self.points = list()
-#         self.roads = list()
-
-# class potential_field(object):
-#     alpha = 1
-#     beta = 1
-#     def dmin(self, x, C):
-#         min_distance = -1
-#         for c in C.points:
-#             if x.distance(c) < min_distance:
-#                 min_distance = x.distance(c)
-#         return min_distance
-
-#     def potential(self, x, C, alpha, beta):
-#         part1 = alpha / self.dmin(x, C) - beta / math.sqrt(self.dmin(x, C))
-#         part2 = 0
-#         for road in C.roads:
-#             part2 = part2 + road.length / math.sqrt(x.distance(road))
-#         return part1 * part2
