@@ -20,12 +20,12 @@ class City(object):
             QUADTREE_PARAMS_Y + QUADTREE_PARAMS_H
         ))
 
-    def randomDirection(self, limit):
+    def direction_offset(self, limit):
         return limit * (random.random() - 0.5) * 2
 
     def segmentUsingDirection(self, start, t, q, dir, length):
         if length is None:
-            length = DEFAULT_SEGMENT_WIDTH
+            length = STREET_SEGMENT_WIDTH
         # default to east
         end = Point(
             start.x + length*math.sin(math.radians(dir)),
@@ -33,70 +33,70 @@ class City(object):
         )
         return Segment(start, end, t, q)
 
-    def segmentContinue(self, previousSegment, dir):
+    def gen_segment_follow(self, previous_segment, dir):
         return self.segmentUsingDirection(
-            previousSegment.r.end,
+            previous_segment.r.end,
             0,
-            previousSegment.q,
+            previous_segment.q,
             dir,
-            previousSegment.length
+            previous_segment.length
         )
 
-    def segmentBranch(self, previousSegment, dir):
+    def segmentBranch(self, previous_segment, dir):
         delay = 0
-        if previousSegment.q['highway']:
+        if previous_segment.q['highway']:
             delay = NORMAL_BRANCH_TIME_DELAY_FROM_HIGHWAY
         else:
             delay = NORMAL_BRANCH_TIME_DELAY_FROM_STREET
 
         return self.segmentUsingDirection(
-            previousSegment.r.end,
+            previous_segment.r.end,
             delay,
             {'highway': False},
             dir,
-            DEFAULT_SEGMENT_LENGTH
+            STREET_SEGMENT_LENGTH
         )
 
-    def globalGoals(self, previousSegment):
+    def globalGoals(self, previous_segment):
         newBranches = list()
-        if True:  # not previousSegment.q.severed:
+        if 'snapped' not in previous_segment.q or not previous_segment.q['snapped']:
 
-            continueStraight = self.segmentContinue(
-                previousSegment, previousSegment.getDir())
-            straightPop = self.heatmap.popOnRoad(continueStraight.r)
+            straight_follow = self.gen_segment_follow(
+                previous_segment, previous_segment.dir())
+            straightPop = self.heatmap.popOnRoad(straight_follow.r)
 
-            if previousSegment.q['highway']:
-                randomStraight = self.segmentContinue(
-                    previousSegment, previousSegment.getDir() + self.randomDirection(forwardAngleDev))
-                randomPop = self.heatmap.popOnRoad(randomStraight.r)
+            if previous_segment.q['highway']:
+                curve_follow = self.gen_segment_follow(
+                    previous_segment, previous_segment.dir() + self.direction_offset(CURVE_DIRECTION_OFFSET_LIMIT))
+                randomPop = self.heatmap.popOnRoad(curve_follow.r)
 
                 roadPop = randomPop
                 if randomPop > straightPop:
-                    newBranches.append(randomStraight)
+                    newBranches.append(curve_follow)
                 else:
-                    newBranches.append(continueStraight)
+                    newBranches.append(straight_follow)
                     roadPop = straightPop
 
                 if roadPop > HIGHWAY_BRANCH_POPULATION_THRESHOLD:
                     if random.random() < HIGHWAY_BRANCH_PROBABILITY:
-                        leftHighwayBranch = self.segmentContinue(
-                            previousSegment, previousSegment.getDir() - 90 + self.randomDirection(branchAngleDev))
+                        leftHighwayBranch = self.gen_segment_follow(
+                            previous_segment, previous_segment.dir() - 90 + self.direction_offset(BRANCH_DIRECTION_OFFSET_LIMIT))
                         newBranches.append(leftHighwayBranch)
                     elif random.random() < HIGHWAY_BRANCH_PROBABILITY:
-                        rightHighwayBranch = self.segmentContinue(
-                            previousSegment, previousSegment.getDir() + 90 + self.randomDirection(branchAngleDev))
+                        rightHighwayBranch = self.gen_segment_follow(
+                            previous_segment, previous_segment.dir() + 90 + self.direction_offset(BRANCH_DIRECTION_OFFSET_LIMIT))
                         newBranches.append(rightHighwayBranch)
             elif straightPop > NORMAL_BRANCH_POPULATION_THRESHOLD:
-                newBranches.append(continueStraight)
+                newBranches.append(straight_follow)
 
             if straightPop > NORMAL_BRANCH_POPULATION_THRESHOLD:
-                if random.random() < DEFAULT_BRANCH_PROBABILITY:
-                    leftBranch = self.segmentBranch(previousSegment, previousSegment.getDir(
-                    ) - 90 + self.randomDirection(branchAngleDev))
+                if random.random() < STREET_BRANCH_PROBABILITY:
+                    leftBranch = self.segmentBranch(previous_segment, previous_segment.dir(
+                    ) - 90 + self.direction_offset(BRANCH_DIRECTION_OFFSET_LIMIT))
                     newBranches.append(leftBranch)
                 else:
-                    rightBranch = self.segmentBranch(previousSegment, previousSegment.getDir(
-                    ) + 90 + self.randomDirection(branchAngleDev))
+                    rightBranch = self.segmentBranch(previous_segment, previous_segment.dir(
+                    ) + 90 + self.direction_offset(BRANCH_DIRECTION_OFFSET_LIMIT))
                     newBranches.append(rightBranch)
         # setup links
         return newBranches
@@ -108,13 +108,13 @@ class City(object):
         minx, miny, maxx, maxy = segment.getBox()
         matchSegments = self.spindex.intersect(
             (minx - ROAD_SNAP_DISTANCE,
-            miny - ROAD_SNAP_DISTANCE,
-            maxx + ROAD_SNAP_DISTANCE,
-            maxy + ROAD_SNAP_DISTANCE)
+             miny - ROAD_SNAP_DISTANCE,
+             maxx + ROAD_SNAP_DISTANCE,
+             maxy + ROAD_SNAP_DISTANCE)
         )
-        
+
         for other in matchSegments:
-            minDegree = min_intersect_degree(other.getDir(), segment.getDir())
+            minDegree = min_intersect_degree(other.dir(), segment.dir())
 
             # if minDegree < EPSILON:
             #     d1 = segment.r.start.distance(other.r)
@@ -126,9 +126,10 @@ class City(object):
             #         else:
             #             if not segment.r.end.equal(other.r.start) and not segment.r.end.equal(other.r.end):
             #                 return False
-              
+
             # 1. intersection check
-            cross = line_cross([segment.r.start, segment.r.end], [other.r.start, other.r.end])
+            cross = line_cross([segment.r.start, segment.r.end], [
+                               other.r.start, other.r.end])
             if cross != False:
                 if not cross.equal(segment.r.start) and not cross.equal(segment.r.end):
                     # cross other line with small angle
@@ -136,20 +137,21 @@ class City(object):
                         return False
 
                     segment.r.end = cross
-                    segment.q['severed'] = True
+                    segment.q['snapped'] = True
 
             else:
                 # 2. snap to crossing within radius check
                 if segment.r.end.distance(other.r.end) <= ROAD_SNAP_DISTANCE:
                     segment.r.end = other.r.end
-                    segment.q['severed'] = True
-                    
+                    segment.q['snapped'] = True
+
                 # 3. intersection within radius check
                 if segment.r.end.distance(other.r) <= ROAD_SNAP_DISTANCE and segment.r.end.distance(other.r) > EPSILON:
                     if minDegree >= MINIMUM_INTERSECTION_DEVIATION:
-                        project_point = point_projection(segment.r.end, other.e.start, other.r.end)
+                        project_point = point_projection(
+                            segment.r.end, other.e.start, other.r.end)
                         segment.r.end = project_point
-                        segment.q['severed'] = True
+                        segment.q['snapped'] = True
         return True
 
     def generate(self):
@@ -182,7 +184,7 @@ class City(object):
 
     def appendSegment(self, segment):
         self.segments.append(segment)
-        self.spindex.insert(segment,(segment.getBox()))
+        self.spindex.insert(segment, (segment.getBox()))
 
 
 class HeatMap(object):

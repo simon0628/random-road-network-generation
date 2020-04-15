@@ -53,7 +53,7 @@ class Segment(object):
         # meta-information relevant to global goals
         self.q = dict() if q is None else q
 
-        self.width = HIGHWAY_SEGMENT_WIDTH if q['highway'] else DEFAULT_SEGMENT_WIDTH
+        self.width = HIGHWAY_SEGMENT_WIDTH if q['highway'] else STREET_SEGMENT_WIDTH
 
         self.successor = list()
         self.predecessor = list()
@@ -67,7 +67,7 @@ class Segment(object):
     def setEnd(self, end):
         self.end = end
 
-    def getDir(self):
+    def dir(self):
         vector = self.r.end.subtractPoints(self.r.start)
         cross = Point(0, 1).crossProduct(vector)
         if cross > 0:
