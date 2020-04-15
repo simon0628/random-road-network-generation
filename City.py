@@ -138,13 +138,19 @@ class City(object):
                     segment.r.end = cross
                     segment.q['severed'] = True
 
-            # 2. snap to crossing within radius check
-            elif segment.r.end.distance(other.r.end) <= ROAD_SNAP_DISTANCE:
-                segment.r.end = other.r.end
-                segment.q['severed'] = True
-
+            else:
+                # 2. snap to crossing within radius check
+                if segment.r.end.distance(other.r.end) <= ROAD_SNAP_DISTANCE:
+                    segment.r.end = other.r.end
+                    segment.q['severed'] = True
+                    
+                # 3. intersection within radius check
+                if segment.r.end.distance(other.r) <= ROAD_SNAP_DISTANCE and segment.r.end.distance(other.r) > EPSILON:
+                    if minDegree >= MINIMUM_INTERSECTION_DEVIATION:
+                        project_point = point_projection(segment.r.end, other.e.start, other.r.end)
+                        segment.r.end = project_point
+                        segment.q['severed'] = True
         return True
-        # 3. intersection within radius check
 
     def generate(self):
         priorityQ = list()
@@ -153,16 +159,8 @@ class City(object):
             HIGHWAY_SEGMENT_LENGTH, 0), 0, {'highway': True})
         oppositeDirection = Segment(
             Point(0, 0), Point(-HIGHWAY_SEGMENT_LENGTH, 0), 0, {'highway': True})
-        # oppositeDirection = rootSegment
-        # newEnd = Point(rootSegment.r.start.x - HIGHWAY_SEGMENT_LENGTH, oppositeDirection.r.end.y)
-        # oppositeDirection.r.end = newEnd
-        # oppositeDirection.links.b.append(rootSegment)
-        # rootSegment.links.b.append(oppositeDirection)
         priorityQ.append(rootSegment)
         priorityQ.append(oppositeDirection)
-
-        # qTree = new Quadtree(config.mapGeneration.QUADTREE_PARAMS,
-        # config.mapGeneration.QUADTREE_MAX_OBJECTS, config.mapGeneration.QUADTREE_MAX_LEVELS)
 
         while len(priorityQ) > 0 and len(self.segments) < SEGMENT_COUNT_LIMIT:
             # pop smallest r(ti, ri, qi) from Q
@@ -176,8 +174,6 @@ class City(object):
             minSegment = priorityQ.pop(minT_i)
             accepted = self.localConstraints(minSegment, self.segments)
             if accepted:
-                # if (minSegment.setupBranchLinks?)
-                #     minSegment.setupBranchLinks()
                 self.appendSegment(minSegment)
                 newSegments = self.globalGoals(minSegment)
                 for i, newSegment in enumerate(newSegments):
