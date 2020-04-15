@@ -139,9 +139,9 @@ class City(object):
                     segment.q['severed'] = True
 
             # 2. snap to crossing within radius check
-            # if not segment.r.end.equal(other.r.end) and segment.r.end.distance(other.r.end) <= ROAD_SNAP_DISTANCE:
-            #     segment.r.end = other.r.end
-            #     segment.q['severed'] = True
+            elif segment.r.end.distance(other.r.end) <= ROAD_SNAP_DISTANCE:
+                segment.r.end = other.r.end
+                segment.q['severed'] = True
 
         return True
         # 3. intersection within radius check
