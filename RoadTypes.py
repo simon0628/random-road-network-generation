@@ -18,7 +18,7 @@ class Point(object):
     def angleBetween(self, p2):
         length1 = math.sqrt(self.x * self.x + self.y * self.y)
         length2 = math.sqrt(p2.x * p2.x + p2.y * p2.y)
-        return math.acos((self.x * p2.x + self.y * p2.y)/ (length1 * length2))
+        return math.acos((self.x * p2.x + self.y * p2.y)/ (length1 * length2)) * 180 / math.pi
 
     def equal(self, p2):
         if self.distance(p2) < EPSILON:
@@ -77,8 +77,16 @@ class Segment(object):
 
     def getDir(self):
         vector = self.r.end.subtractPoints(self.r.start)
-        
-        return angle_of_vectors(vector.x, vector.y, 0, 1)
+        cross = Point(0, 1).crossProduct(vector)
+        if cross > 0:
+            sign = 1
+        elif cross == 0:
+            sign = 0
+        else:
+            sign = -1
+
+        self.cachedDir = -1 * sign * Point(0, 1).angleBetween(vector)
+        return self.cachedDir
 
     def startIsBackwards(self):
         if len(self.predecessor) > 0:
@@ -92,15 +100,4 @@ class Segment(object):
         elif self.successor.index(seg2) != -1:
             return self.end if self.startIsBackwards else self.start
 
-def angle_of_vectors(a,b,c,d):
-    
-    dotProduct = a*c + b*d
-        # for three dimensional simply add dotProduct = a*c + b*d  + e*f 
-    modOfVector1 = math.sqrt( a*a + b*b)*math.sqrt(c*c + d*d) 
-        # for three dimensional simply add modOfVector = math.sqrt( a*a + b*b + e*e)*math.sqrt(c*c + d*d +f*f) 
-    angle = dotProduct/modOfVector1
-    # print("Cosθ =",angle)
-    angleInDegree = math.degrees(math.acos(angle))
-    return angleInDegree
-    # print("θ =",angleInDegree,"°")
-     
+
