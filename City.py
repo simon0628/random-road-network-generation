@@ -1,10 +1,9 @@
-from RoadTypes import Segment, Point
+from RoadTypes import Segment
 from Constants import *
 from Utils import *
 from Point import *
 import noise
 import math
-import random
 from pyqtree import Index
 
 
@@ -21,8 +20,7 @@ class City(object):
             QUADTREE_PARAMS_Y + QUADTREE_PARAMS_H
         ))
 
-    def segmentUsingDirection(self, start, t, q, dir, length, width = None):
-        # default to east
+    def gen_segment(self, start, t, q, dir, length, width = None):
         end = Point(
             start.x + length*math.sin(math.radians(dir)),
             start.y + length*math.cos(math.radians(dir))
@@ -30,7 +28,7 @@ class City(object):
         return Segment(start, end, t, q, width)
 
     def gen_segment_follow(self, previous_segment, dir):
-        return self.segmentUsingDirection(
+        return self.gen_segment(
             previous_segment.r.end,
             0,
             previous_segment.q,
@@ -41,8 +39,8 @@ class City(object):
 
     def gen_segment_branch(self, previous_segment, dir):
         if previous_segment.q['highway']:
-            if random.random() < HIGHWAY_DEGENERATE_PROBABILITY:
-                return self.segmentUsingDirection(
+            if rand_hit_thershold(HIGHWAY_DEGENERATE_PROBABILITY):
+                return self.gen_segment(
                             previous_segment.r.end,
                             BRANCH_TIME_DELAY_HIGHWAY,
                             {'highway': False},
@@ -50,7 +48,7 @@ class City(object):
                             STREET_SEGMENT_LENGTH + rand_in_limit(STREET_SEGMENT_LENGTH_OFFSET_LIMIT)
                         )
             else:
-                return self.segmentUsingDirection(
+                return self.gen_segment(
                             previous_segment.r.end,
                             BRANCH_TIME_DELAY_HIGHWAY,
                             {'highway': True},
@@ -58,7 +56,7 @@ class City(object):
                             HIGHWAY_SEGMENT_LENGTH + rand_in_limit(HIGHWAY_SEGMENT_LENGTH_OFFSET_LIMIT)
                         )
         else:
-            return self.segmentUsingDirection(
+            return self.gen_segment(
                         previous_segment.r.end,
                         BRANCH_TIME_DELAY_STREET,
                         {'highway': False},
@@ -116,8 +114,7 @@ class City(object):
 
     def localConstraints(self, segment, segments):
         # return True
-        # TODO
-
+        
         minx, miny, maxx, maxy = segment.getBox()
         matchSegments = self.spindex.intersect(
             (minx - ROAD_SNAP_DISTANCE,
