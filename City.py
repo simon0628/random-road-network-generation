@@ -20,7 +20,9 @@ class City(object):
             QUADTREE_PARAMS_Y + QUADTREE_PARAMS_H
         ))
 
+    
     def direction_offset(self, limit):
+        # rand in [-limit, limit]
         return limit * (random.random() - 0.5) * 2
 
     def segmentUsingDirection(self, start, t, q, dir, length):
@@ -61,44 +63,47 @@ class City(object):
         newBranches = list()
         if 'snapped' not in previous_segment.q or not previous_segment.q['snapped']:
 
-            straight_follow = self.gen_segment_follow(
-                previous_segment, previous_segment.dir())
-            straightPop = self.heatmap.popOnRoad(straight_follow.r)
 
             if previous_segment.q['highway']:
-                curve_follow = self.gen_segment_follow(
-                    previous_segment, previous_segment.dir() + self.direction_offset(CURVE_DIRECTION_OFFSET_LIMIT))
-                randomPop = self.heatmap.popOnRoad(curve_follow.r)
+                max_heat = None
+                max_heat_offset = 0
+                for offset in range(-CURVE_DIRECTION_OFFSET_LIMIT, CURVE_DIRECTION_OFFSET_LIMIT):
+                    curve_follow_segment = self.gen_segment_follow(
+                        previous_segment, previous_segment.dir() + offset)
+                    heat = self.heatmap.road_heat(curve_follow_segment.r)
+                    if max_heat is None or heat > max_heat:
+                        max_heat = heat
+                        max_heat_offset = offset
+                curve_follow_segment = self.gen_segment_follow(
+                        previous_segment, previous_segment.dir() + max_heat_offset)
+                newBranches.append(curve_follow_segment)
 
-                roadPop = randomPop
-                if randomPop > straightPop:
-                    newBranches.append(curve_follow)
-                else:
-                    newBranches.append(straight_follow)
-                    roadPop = straightPop
-
-                if roadPop > HIGHWAY_BRANCH_POPULATION_THRESHOLD:
-                    if random.random() < HIGHWAY_BRANCH_PROBABILITY:
+                if max_heat > HIGHWAY_BRANCH_HEAT_THRESHOLD:
+                    if random.random() < HIGHWAY_BRANCH_RIGHT_PROBABILITY:
                         leftHighwayBranch = self.gen_segment_follow(
                             previous_segment, previous_segment.dir() - 90 + self.direction_offset(BRANCH_DIRECTION_OFFSET_LIMIT))
                         newBranches.append(leftHighwayBranch)
-                    elif random.random() < HIGHWAY_BRANCH_PROBABILITY:
+                    else:
                         rightHighwayBranch = self.gen_segment_follow(
                             previous_segment, previous_segment.dir() + 90 + self.direction_offset(BRANCH_DIRECTION_OFFSET_LIMIT))
                         newBranches.append(rightHighwayBranch)
-            elif straightPop > NORMAL_BRANCH_POPULATION_THRESHOLD:
-                newBranches.append(straight_follow)
+            else:
+                straight_follow_segment = self.gen_segment_follow(
+                    previous_segment, previous_segment.dir())
+                straight_heat = self.heatmap.road_heat(straight_follow_segment.r)
 
-            if straightPop > NORMAL_BRANCH_POPULATION_THRESHOLD:
-                if random.random() < STREET_BRANCH_PROBABILITY:
-                    leftBranch = self.segmentBranch(previous_segment, previous_segment.dir(
-                    ) - 90 + self.direction_offset(BRANCH_DIRECTION_OFFSET_LIMIT))
-                    newBranches.append(leftBranch)
-                else:
-                    rightBranch = self.segmentBranch(previous_segment, previous_segment.dir(
-                    ) + 90 + self.direction_offset(BRANCH_DIRECTION_OFFSET_LIMIT))
-                    newBranches.append(rightBranch)
-        # setup links
+                if straight_heat > NORMAL_BRANCH_POPULATION_THRESHOLD:
+                    newBranches.append(straight_follow_segment)
+
+                    if random.random() < STREET_BRANCH_RIGHT_PROBABILITY:
+                        leftBranch = self.segmentBranch(previous_segment, previous_segment.dir(
+                        ) - 90 + self.direction_offset(BRANCH_DIRECTION_OFFSET_LIMIT))
+                        newBranches.append(leftBranch)
+                    else:
+                        rightBranch = self.segmentBranch(previous_segment, previous_segment.dir(
+                        ) + 90 + self.direction_offset(BRANCH_DIRECTION_OFFSET_LIMIT))
+                        newBranches.append(rightBranch)
+
         return newBranches
 
     def localConstraints(self, segment, segments):
@@ -188,7 +193,7 @@ class City(object):
 
 
 class HeatMap(object):
-    def popOnRoad(self, r):
+    def road_heat(self, r):
         return (self.populationAt(r.start.x, r.start.y) + self.populationAt(r.end.x, r.end.y))/2
 
     def populationAt(self, x, y):
