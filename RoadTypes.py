@@ -18,6 +18,8 @@ class Point(object):
     def angleBetween(self, p2):
         length1 = math.sqrt(self.x * self.x + self.y * self.y)
         length2 = math.sqrt(p2.x * p2.x + p2.y * p2.y)
+        if length1 * length2 == 0:
+            return 0
         return math.acos((self.x * p2.x + self.y * p2.y)/ (length1 * length2)) * 180 / math.pi
 
     def equal(self, p2):
@@ -52,12 +54,6 @@ class Segment(object):
         self.q = dict() if q is None else q
 
         self.width = HIGHWAY_SEGMENT_WIDTH if q['highway'] else DEFAULT_SEGMENT_WIDTH
-        self.roadRevision = 0
-        self.dirRevision = None
-        self.lengthRevision = None
-
-        self.cachedDir = None
-        self.cachedLength = None
 
         self.successor = list()
         self.predecessor = list()
@@ -67,11 +63,9 @@ class Segment(object):
 
     def setStart(self, start):
         self.start = start
-        self.roadRevision += 1
 
     def setEnd(self, end):
         self.end = end
-        self.roadRevision += 1
 
     def getDir(self):
         vector = self.r.end.subtractPoints(self.r.start)
@@ -91,17 +85,5 @@ class Segment(object):
         y1 = self.r.start.y
         y2 = self.r.end.y
         return min([x1, x2]), min([y1, y2]), max([x1, x2]), max([y1, y2])
-
-    def startIsBackwards(self):
-        if len(self.predecessor) > 0:
-            return self.start.equal(self.predecessor[0].start) or self.start.equal(self.predecessor[0].end)
-        else:
-            return self.end.equal(self.successor[0].start) or self.end.equal(self.successor[0].end)
-
-    def endContaining(self, seg2):
-        if self.predecessor.index(seg2) != -1:
-            return self.start if self.startIsBackwards else self.end
-        elif self.successor.index(seg2) != -1:
-            return self.end if self.startIsBackwards else self.start
 
 
