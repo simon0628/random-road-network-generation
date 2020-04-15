@@ -2,10 +2,6 @@ from math import fabs, sqrt
 import random
 from Point import Point
 
-def point_distance(pointa, pointb):
-    return sqrt((pointa.x - pointb.x) ** 2 + (pointa.y - pointb.y) ** 2)
-
-
 def line(p1, p2):
     A = (p1.y - p2.y)
     B = (p2.x - p1.x)
@@ -32,19 +28,6 @@ def line_cross(line1, line2):
 def min_intersect_degree(d1, d2):
     diff = abs(d1 - d2) % 180
     return min(diff, abs(diff-180))
-
-def point_dot(a, b):
-    return a.x * b.x + a.y * b.y
-
-def point_projection(a, b, p):
-    ap = Point(p.x-a.x, p.y-a.y)
-    ab = Point(b.x-a.x, b.y-a.y)
-    k = point_dot(ap,ab)/point_dot(ab,ab)
-    result = Point(
-        a.x + ab.x * k,
-        a.y + ab.y * k
-    )
-    return result
 
 def rand_in_limit(limit):
     # rand in [-limit, limit]

@@ -21,15 +21,13 @@ class City(object):
             QUADTREE_PARAMS_Y + QUADTREE_PARAMS_H
         ))
 
-    def segmentUsingDirection(self, start, t, q, dir, length):
-        if length is None:
-            length = STREET_SEGMENT_LENGTH
+    def segmentUsingDirection(self, start, t, q, dir, length, width = None):
         # default to east
         end = Point(
             start.x + length*math.sin(math.radians(dir)),
             start.y + length*math.cos(math.radians(dir))
         )
-        return Segment(start, end, t, q)
+        return Segment(start, end, t, q, width)
 
     def gen_segment_follow(self, previous_segment, dir):
         return self.segmentUsingDirection(
@@ -37,7 +35,8 @@ class City(object):
             0,
             previous_segment.q,
             dir,
-            previous_segment.length
+            previous_segment.length,
+            previous_segment.width
         )
 
     def gen_segment_branch(self, previous_segment, dir):
@@ -130,17 +129,6 @@ class City(object):
         for other in matchSegments:
             minDegree = min_intersect_degree(other.dir(), segment.dir())
 
-            # if minDegree < EPSILON:
-            #     d1 = segment.r.start.distance(other.r)
-            #     d2 = segment.r.end.distance(other.r)
-            #     if min([d1, d2]) < EPSILON:
-            #         if d1 < d2:
-            #             if not segment.r.start.equal(other.r.start) and not segment.r.start.equal(other.r.end):
-            #                 return False
-            #         else:
-            #             if not segment.r.end.equal(other.r.start) and not segment.r.end.equal(other.r.end):
-            #                 return False
-
             # 1. intersection check
             cross = line_cross([segment.r.start, segment.r.end], [
                                other.r.start, other.r.end])
@@ -155,7 +143,7 @@ class City(object):
 
             else:
                 # 2. snap to crossing within radius check
-                if segment.r.end.distance(other.r.end) <= ROAD_SNAP_DISTANCE:
+                if distance_p2p(segment.r.end, other.r.end) <= ROAD_SNAP_DISTANCE:
                     segment.r.end = other.r.end
                     segment.q['snapped'] = True
 
