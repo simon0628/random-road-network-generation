@@ -1,6 +1,6 @@
 from math import fabs, sqrt
-from RoadTypes import Point
 import random
+from Point import Point
 
 def point_distance(pointa, pointb):
     return sqrt((pointa.x - pointb.x) ** 2 + (pointa.y - pointb.y) ** 2)

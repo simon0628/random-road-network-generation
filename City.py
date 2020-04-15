@@ -1,6 +1,7 @@
 from RoadTypes import Segment, Point
 from Constants import *
 from Utils import *
+from Point import *
 import noise
 import math
 import random
@@ -73,7 +74,7 @@ class City(object):
             if previous_segment.q['highway']:
                 max_heat = None
                 max_heat_offset = 0
-                for offset in range(-CURVE_DIRECTION_OFFSET_LIMIT, CURVE_DIRECTION_OFFSET_LIMIT):
+                for offset in range(-HIGHWAY_CURVE_DIRECTION_OFFSET_LIMIT, HIGHWAY_CURVE_DIRECTION_OFFSET_LIMIT):
                     curve_follow_segment = self.gen_segment_follow(
                         previous_segment, previous_segment.dir() + offset)
                     heat = self.heatmap.road_heat(curve_follow_segment.r)
@@ -87,28 +88,29 @@ class City(object):
                 if max_heat > HIGHWAY_BRANCH_HEAT_THRESHOLD:
                     if rand_hit_thershold(HIGHWAY_BRANCH_RIGHT_PROBABILITY):
                         leftHighwayBranch = self.gen_segment_branch(
-                            previous_segment, previous_segment.dir() - 90 + rand_in_limit(BRANCH_DIRECTION_OFFSET_LIMIT))
+                            previous_segment, previous_segment.dir() - 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT))
                         proposed_segments.append(leftHighwayBranch)
                     else:
                         rightHighwayBranch = self.gen_segment_branch(
-                            previous_segment, previous_segment.dir() + 90 + rand_in_limit(BRANCH_DIRECTION_OFFSET_LIMIT))
+                            previous_segment, previous_segment.dir() + 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT))
                         proposed_segments.append(rightHighwayBranch)
+
             else:
                 straight_follow_segment = self.gen_segment_follow(
-                    previous_segment, previous_segment.dir())
+                    previous_segment, previous_segment.dir() + rand_in_limit(STREET_CURVE_DIRECTION_OFFSET_LIMIT))
                 straight_heat = self.heatmap.road_heat(
                     straight_follow_segment.r)
-
                 if straight_heat > NORMAL_BRANCH_POPULATION_THRESHOLD:
                     proposed_segments.append(straight_follow_segment)
 
+                if rand_hit_thershold(STREET_BRANCH_PROBABILITY):
                     if rand_hit_thershold(STREET_BRANCH_RIGHT_PROBABILITY):
                         leftBranch = self.gen_segment_branch(previous_segment, previous_segment.dir(
-                        ) - 90 + rand_in_limit(BRANCH_DIRECTION_OFFSET_LIMIT))
+                        ) - 90 + rand_in_limit(STREET_BRANCH_DIRECTION_OFFSET_LIMIT))
                         proposed_segments.append(leftBranch)
                     else:
                         rightBranch = self.gen_segment_branch(previous_segment, previous_segment.dir(
-                        ) + 90 + rand_in_limit(BRANCH_DIRECTION_OFFSET_LIMIT))
+                        ) + 90 + rand_in_limit(STREET_BRANCH_DIRECTION_OFFSET_LIMIT))
                         proposed_segments.append(rightBranch)
 
         return proposed_segments
@@ -158,7 +160,8 @@ class City(object):
                     segment.q['snapped'] = True
 
                 # 3. intersection within radius check
-                if segment.r.end.distance(other.r) <= ROAD_SNAP_DISTANCE and segment.r.end.distance(other.r) > EPSILON:
+                distance = distance_p2l(segment.r.end, other.r)
+                if distance <= ROAD_SNAP_DISTANCE and distance > EPSILON:
                     if minDegree >= MINIMUM_INTERSECTION_DEVIATION:
                         project_point = point_projection(
                             segment.r.end, other.e.start, other.r.end)
