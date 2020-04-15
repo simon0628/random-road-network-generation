@@ -3,6 +3,8 @@ from Constants import *
 import noise
 import math
 import random
+from pyqtree import Index
+
 
 class City(object):
     def __init__(self):
@@ -10,45 +12,55 @@ class City(object):
         self.heatmap = HeatMap()
         self.segments = list()
 
+        self.spindex = Index(bbox=(
+            QUADTREE_PARAMS_X,
+            QUADTREE_PARAMS_Y,
+            QUADTREE_PARAMS_X + QUADTREE_PARAMS_W,
+            QUADTREE_PARAMS_Y + QUADTREE_PARAMS_H
+        ))
 
     def randomDirection(self, limit):
         return limit * (random.random() - 0.5) * 2
 
-    def segmentUsingDirection(self, start, t, q, dir = 90, length = DEFAULT_SEGMENT_WIDTH):
+    def segmentUsingDirection(self, start, t, q, dir, length):
+        if length is None:
+            length = DEFAULT_SEGMENT_WIDTH
         # default to east
         end = Point(
-            start.x + length*math.sin(dir),
-            start.y + length*math.cos(dir)
+            start.x + length*math.sin(math.radians(dir)),
+            start.y + length*math.cos(math.radians(dir))
         )
         return Segment(start, end, t, q)
 
     def segmentContinue(self, previousSegment, dir):
         return self.segmentUsingDirection(
-                previousSegment.r.end,
-                0,
-                previousSegment.q,
-                dir,
-                previousSegment.length
-            )
+            previousSegment.r.end,
+            0,
+            previousSegment.q,
+            dir,
+            previousSegment.length
+        )
 
     def segmentBranch(self, previousSegment, dir):
         return self.segmentUsingDirection(
-                previousSegment.r.end,
-                NORMAL_BRANCH_TIME_DELAY_FROM_HIGHWAY if previousSegment.q['highway'] else 0,
-                previousSegment.q,
-                dir,
-                DEFAULT_SEGMENT_LENGTH
-            )
+            previousSegment.r.end,
+            NORMAL_BRANCH_TIME_DELAY_FROM_HIGHWAY if previousSegment.q['highway'] else 0,
+            {'highway': False},
+            dir,
+            DEFAULT_SEGMENT_LENGTH
+        )
 
     def globalGoals(self, previousSegment):
         newBranches = list()
-        if True: # not previousSegment.q.severed:
+        if True:  # not previousSegment.q.severed:
 
-            continueStraight = self.segmentContinue(previousSegment, previousSegment.getDir())
+            continueStraight = self.segmentContinue(
+                previousSegment, previousSegment.getDir())
             straightPop = self.heatmap.popOnRoad(continueStraight.r)
 
             if previousSegment.q['highway']:
-                randomStraight = self.segmentContinue(previousSegment, previousSegment.getDir() + self.randomDirection(forwardAngleDev))
+                randomStraight = self.segmentContinue(
+                    previousSegment, previousSegment.getDir() + self.randomDirection(forwardAngleDev))
                 randomPop = self.heatmap.popOnRoad(randomStraight.r)
 
                 roadPop = randomPop
@@ -60,20 +72,24 @@ class City(object):
 
                 if roadPop > HIGHWAY_BRANCH_POPULATION_THRESHOLD:
                     if random.random() < HIGHWAY_BRANCH_PROBABILITY:
-                        leftHighwayBranch = self.segmentContinue(previousSegment, previousSegment.getDir() - 90 + self.randomDirection(branchAngleDev))
+                        leftHighwayBranch = self.segmentContinue(
+                            previousSegment, previousSegment.getDir() - 90 + self.randomDirection(branchAngleDev))
                         newBranches.append(leftHighwayBranch)
                     elif random.random() < HIGHWAY_BRANCH_PROBABILITY:
-                        rightHighwayBranch = self.segmentContinue(previousSegment, previousSegment.getDir() + 90 + self.randomDirection(branchAngleDev))
+                        rightHighwayBranch = self.segmentContinue(
+                            previousSegment, previousSegment.getDir() + 90 + self.randomDirection(branchAngleDev))
                         newBranches.append(rightHighwayBranch)
             elif straightPop > NORMAL_BRANCH_POPULATION_THRESHOLD:
                 newBranches.append(continueStraight)
 
             if straightPop > NORMAL_BRANCH_POPULATION_THRESHOLD:
                 if random.random() < DEFAULT_BRANCH_PROBABILITY:
-                    leftBranch = self.segmentBranch(previousSegment, previousSegment.getDir() - 90 + self.randomDirection(branchAngleDev))
+                    leftBranch = self.segmentBranch(previousSegment, previousSegment.getDir(
+                    ) - 90 + self.randomDirection(branchAngleDev))
                     newBranches.append(leftBranch)
                 else:
-                    rightBranch = self.segmentBranch(previousSegment, previousSegment.getDir() + 90 + self.randomDirection(branchAngleDev))
+                    rightBranch = self.segmentBranch(previousSegment, previousSegment.getDir(
+                    ) + 90 + self.randomDirection(branchAngleDev))
                     newBranches.append(rightBranch)
         # setup links
         return newBranches
@@ -81,16 +97,20 @@ class City(object):
     def localConstraints(self, segment, segments):
         return True
         # TODO
+        matchSegments = self.spindex.intersect()
+        for segment in matchSegments:
+            pass
         # 1. intersection check
         # 2. snap to crossing within radius check
         # 3. intersection within radius check
 
-
     def generate(self):
         priorityQ = list()
 
-        rootSegment = Segment(Point(0, 0), Point(HIGHWAY_SEGMENT_LENGTH, 0), 0, {'highway': True})
-        oppositeDirection = Segment(Point(0, 0), Point(-HIGHWAY_SEGMENT_LENGTH, 0), 0, {'highway': True})
+        rootSegment = Segment(Point(0, 0), Point(
+            HIGHWAY_SEGMENT_LENGTH, 0), 0, {'highway': True})
+        oppositeDirection = Segment(
+            Point(0, 0), Point(-HIGHWAY_SEGMENT_LENGTH, 0), 0, {'highway': True})
         # oppositeDirection = rootSegment
         # newEnd = Point(rootSegment.r.start.x - HIGHWAY_SEGMENT_LENGTH, oppositeDirection.r.end.y)
         # oppositeDirection.r.end = newEnd
@@ -116,19 +136,29 @@ class City(object):
             if accepted:
                 # if (minSegment.setupBranchLinks?)
                 #     minSegment.setupBranchLinks()
-                self.segments.append(minSegment)
+                self.appendSegment(minSegment)
                 newSegments = self.globalGoals(minSegment)
                 for i, newSegment in enumerate(newSegments):
                     newSegments[i].t = minSegment.t + 1 + newSegments[i].t
                     priorityQ.append(newSegment)
 
+    def appendSegment(self, segment):
+        self.segments.append(segment)
 
+        x1 = segment.r.start.x
+        x2 = segment.r.end.x
+        y1 = segment.r.start.y
+        y2 = segment.r.end.y
+        self.spindex.insert(
+            segment,
+            (min([x1, x2]), min([y1, y2]), max([x1, x2]), max([y1, y2]))
+        )
 
 
 class HeatMap(object):
     def popOnRoad(self, r):
         return (self.populationAt(r.start.x, r.start.y) + self.populationAt(r.end.x, r.end.y))/2
-    
+
     def populationAt(self, x, y):
         value1 = (noise.snoise2(x/10000, y/10000) + 1) / 2
         value2 = (noise.snoise2(x/20000 + 500, y/20000 + 500) + 1) / 2
