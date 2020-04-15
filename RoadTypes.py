@@ -77,9 +77,8 @@ class Segment(object):
 
     def getDir(self):
         vector = self.r.end.subtractPoints(self.r.start)
-        sign = 1 if Point(0, 1).crossProduct(vector) >=0 else -1
-        self.cachedDir = -1 * sign * Point(0, 1).angleBetween(vector)
-        return self.cachedDir
+        
+        return angle_of_vectors(vector.x, vector.y, 0, 1)
 
     def startIsBackwards(self):
         if len(self.predecessor) > 0:
@@ -93,4 +92,15 @@ class Segment(object):
         elif self.successor.index(seg2) != -1:
             return self.end if self.startIsBackwards else self.start
 
-
+def angle_of_vectors(a,b,c,d):
+    
+    dotProduct = a*c + b*d
+        # for three dimensional simply add dotProduct = a*c + b*d  + e*f 
+    modOfVector1 = math.sqrt( a*a + b*b)*math.sqrt(c*c + d*d) 
+        # for three dimensional simply add modOfVector = math.sqrt( a*a + b*b + e*e)*math.sqrt(c*c + d*d +f*f) 
+    angle = dotProduct/modOfVector1
+    # print("Cosθ =",angle)
+    angleInDegree = math.degrees(math.acos(angle))
+    return angleInDegree
+    # print("θ =",angleInDegree,"°")
+     
