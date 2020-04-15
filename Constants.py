@@ -24,5 +24,5 @@ QUADTREE_MAX_OBJECTS = 10
 QUADTREE_MAX_LEVELS = 10
 QUADTREE_EPSILON = 10
 
-branchAngleDev = 10
+branchAngleDev = 5
 forwardAngleDev = 15
