@@ -51,8 +51,10 @@ class City(object):
         )
 
     def gen_segment_branch(self, previous_segment, dir, should_down = False):
+        new_meta = previous_segment.meta.copy()
+        new_meta['snapped'] = False
+        new_meta.pop('width') # delete width to generate new width
         if should_down:
-            new_meta = previous_segment.meta.copy()
             new_meta['highway'] = False
             return self.gen_segment(
                     previous_segment.r.end,
@@ -65,14 +67,14 @@ class City(object):
             return self.gen_segment(
                 previous_segment.r.end,
                 BRANCH_TIME_DELAY_HIGHWAY if previous_segment.meta['highway'] else BRANCH_TIME_DELAY_STREET,
-                previous_segment.meta,
+                new_meta,
                 dir,
                 self.gen_length(previous_segment.meta['highway'])
             )
 
     def globalGoals(self, previous_segment):
         proposed_segments = list()
-        if True:#'snapped' not in previous_segment.meta or not previous_segment.meta['snapped']:
+        if 'snapped' not in previous_segment.meta or not previous_segment.meta['snapped']:
             if previous_segment.meta['highway']:
                 # find extend direction with max heat
                 max_heat = None
