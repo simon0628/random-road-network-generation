@@ -53,9 +53,9 @@ def draw(debug = False):
 
 
 city = City()
-city.generate()
+city.generate(True)
 
 
 print(len(city.segments))
-draw()
+# draw()
 

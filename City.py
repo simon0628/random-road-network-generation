@@ -5,6 +5,7 @@ from Point import *
 import noise
 import math
 from pyqtree import Index
+import matplotlib.pyplot as plt
 
 
 class City(object):
@@ -183,13 +184,17 @@ class City(object):
                         segment.meta['snapped'] = True
         return True
 
-    def generate(self):
+    def generate(self, debug = False):
+        if debug:
+            plt.ion()
         priority_queue = list()
+        init_segment = self.gen_segment(Point(0, 0), 0, {'highway': True}, 0, 400)
+        second_segment = self.gen_segment(Point(0, 0), 0, {'highway': True}, 180, 400)
 
-        init_segment = Segment(Point(0, 0), Point(
-            HIGHWAY_SEGMENT_LENGTH, 0), 0, {'highway': True})
-        second_segment = Segment(
-            Point(0, 0), Point(-HIGHWAY_SEGMENT_LENGTH, 0), 0, {'highway': True})
+        # init_segment = Segment(Point(0, 0), Point(
+        #     HIGHWAY_SEGMENT_LENGTH, 0), 0, )
+        # second_segment = Segment(
+        #     Point(0, 0), Point(-HIGHWAY_SEGMENT_LENGTH, 0), 0, {'highway': True})
         priority_queue.append(init_segment)
         priority_queue.append(second_segment)
 
@@ -206,6 +211,28 @@ class City(object):
             accepted = self.localConstraints(min_segment, self.segments)
             if accepted:
                 self.append_segment(min_segment)
+                if debug:
+                    if min_segment.meta['highway']:
+                        plt.plot(
+                        [min_segment.r.start.x,
+                        min_segment.r.end.x],
+                        [min_segment.r.start.y,
+                        min_segment.r.end.y],
+                        color = 'r',
+                        linewidth = min_segment.meta['width']/2
+                    )
+                    else:
+                        plt.plot(
+                            [min_segment.r.start.x,
+                            min_segment.r.end.x],
+                            [min_segment.r.start.y,
+                            min_segment.r.end.y],
+                            color = 'b',
+                            linewidth = min_segment.meta['width']/2
+                        )
+                    plt.draw()
+                    plt.pause(0.001)
+
                 newSegments = self.globalGoals(min_segment)
                 for i, newSegment in enumerate(newSegments):
                     newSegments[i].t = min_segment.t + 1 + newSegments[i].t
