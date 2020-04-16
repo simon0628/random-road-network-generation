@@ -37,7 +37,7 @@ def draw(debug = False):
                 segment.r.end.x],
                 [segment.r.start.y,
                 segment.r.end.y],
-                color = 'r',
+                color = 'b',
                 linewidth = segment.width/2
             )
             else:

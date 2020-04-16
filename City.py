@@ -104,11 +104,11 @@ class City(object):
                     proposed_segments.append(straight_follow_segment)
 
                 if rand_hit_thershold(STREET_BRANCH_PROBABILITY):
-                    if rand_hit_thershold(STREET_BRANCH_RIGHT_PROBABILITY):
+                    if rand_hit_thershold(STREET_BRANCH_LEFT_PROBABILITY):
                         leftBranch = self.gen_segment_branch(previous_segment, previous_segment.dir(
                         ) - 90 + rand_in_limit(STREET_BRANCH_DIRECTION_OFFSET_LIMIT))
                         proposed_segments.append(leftBranch)
-                    else:
+                    if rand_hit_thershold(STREET_BRANCH_RIGHT_PROBABILITY):
                         rightBranch = self.gen_segment_branch(previous_segment, previous_segment.dir(
                         ) + 90 + rand_in_limit(STREET_BRANCH_DIRECTION_OFFSET_LIMIT))
                         proposed_segments.append(rightBranch)
