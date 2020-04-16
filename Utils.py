@@ -21,6 +21,16 @@ def rand_hit_thershold(thershold):
 
 
 def line_cross(line1, line2):
+    v1 = line1[0].subtract(line1[1])
+    v2 = line2[0].subtract(line2[1])
+    if fabs(v1.x * v2.y - v1.y * v2.x) < 1e-2:
+        return False
+
+    def is_online(line, p):
+        v1 = line[0].subtract(p)
+        v2 = p.subtract(line[1])
+        return fabs(v1.x * v2.y - v1.y * v2.x) < 1e-2
+
     def line(p1, p2):
         A = (p1.y - p2.y)
         B = (p2.x - p1.x)
@@ -41,4 +51,9 @@ def line_cross(line1, line2):
     L1 = line(line1[0], line1[1])
     L2 = line(line2[0], line2[1])
 
-    return intersection(L1, L2)
+    point = intersection(L1, L2)
+    if is_online(line1, point):
+        return False
+    if is_online(line2, point):
+        return False
+    return point

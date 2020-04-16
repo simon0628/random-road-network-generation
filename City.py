@@ -105,23 +105,8 @@ class City(object):
                         rand_hit_thershold(HIGHWAY_DEGENERATE_PROBABILITY)
                     )
                     # branch at least once
-                    if rand_hit_thershold(HIGHWAY_BRANCH_LEFT_PROBABILITY):
-                        proposed_segments.append(left_branch_segment)
-                    elif rand_hit_thershold(HIGHWAY_BRANCH_RIGHT_PROBABILITY):
-                        proposed_segments.append(right_branch_segment)
-                    else:
-                        proposed_segments.append(left_branch_segment)
-                        proposed_segments.append(right_branch_segment)
-
-                elif rand_hit_thershold(HIGHWAY_BRANCH_PROBABILITY):
-                    if rand_hit_thershold(HIGHWAY_BRANCH_LEFT_PROBABILITY):
-                        left_branch_segment = self.gen_segment_branch(
-                            previous_segment, previous_segment.dir() - 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT))
-                        proposed_segments.append(left_branch_segment)
-                    if rand_hit_thershold(HIGHWAY_BRANCH_RIGHT_PROBABILITY):
-                        right_branch_segment = self.gen_segment_branch(
-                            previous_segment, previous_segment.dir() + 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT))
-                        proposed_segments.append(right_branch_segment)
+                    proposed_segments.append(left_branch_segment)
+                    proposed_segments.append(right_branch_segment)
 
             else:
                 straight_follow_segment = self.gen_segment_extend(
@@ -146,42 +131,43 @@ class City(object):
     def localConstraints(self, segment, segments):
         # return True
         minx, miny, maxx, maxy = segment.getBox()
-        matchSegments = self.spindex.intersect(
-            (minx - ROAD_SNAP_DISTANCE,
-             miny - ROAD_SNAP_DISTANCE,
-             maxx + ROAD_SNAP_DISTANCE,
-             maxy + ROAD_SNAP_DISTANCE)
+        snap_distance = segment.length * ROAD_SNAP_DISTANCE_RATIO
+        near_segments = self.spindex.intersect(
+            (minx - segment.length,
+             miny - segment.length,
+             maxx + segment.length,
+             maxy + segment.length)
         )
 
-        for other in matchSegments:
-            degree = min_intersect_degree(other.dir(), segment.dir())
+        for near_segment in near_segments:
+            if not segment.r.start.equal(near_segment.r.start) and not segment.r.start.equal(near_segment.r.end):      
+                degree = min_intersect_degree(near_segment.dir(), segment.dir())
 
-            # 1. intersection check
-            cross = line_cross([segment.r.start, segment.r.end], [
-                               other.r.start, other.r.end])
-            if cross != False:
-                if not cross.equal(segment.r.start) and not cross.equal(segment.r.end):
-                    # cross other line with small angle
-                    if degree < MINIMUM_INTERSECTION_DEVIATION:
-                        return False
+                # 1. intersection check
+                cross = line_cross([segment.r.start, segment.r.end], [
+                                near_segment.r.start, near_segment.r.end])
+                if cross != False:
+                        # cross near_segment line with small angle
+                        if degree < MINIMUM_INTERSECTION_DEVIATION:
+                            return False
 
-                    segment.r.end = cross
-                    segment.meta['snapped'] = True
-
-            else:
-                # 2. snap to crossing within radius check
-                if distance_p2p(segment.r.end, other.r.end) <= ROAD_SNAP_DISTANCE:
-                    segment.r.end = other.r.end
-                    segment.meta['snapped'] = True
-
-                # 3. intersection within radius check
-                distance = distance_p2l(segment.r.end, other.r)
-                if distance <= ROAD_SNAP_DISTANCE and distance > EPSILON:
-                    if degree >= MINIMUM_INTERSECTION_DEVIATION:
-                        project_point = point_projection(
-                            segment.r.end, other.e.start, other.r.end)
-                        segment.r.end = project_point
+                        segment.r.end = cross
                         segment.meta['snapped'] = True
+
+                else:
+                    # 2. snap to crossing within radius check
+                    if distance_p2p(segment.r.end, near_segment.r.end) <= snap_distance:
+                        segment.r.end = near_segment.r.end
+                        segment.meta['snapped'] = True
+
+                    # 3. intersection within radius check
+                    if degree >= MINIMUM_INTERSECTION_DEVIATION:
+                        distance = distance_p2l(segment.r.end, near_segment.r)
+                        if distance <= snap_distance and distance > EPSILON:
+                            project_point = point_projection(
+                                segment.r.end, near_segment.r.start, near_segment.r.end)
+                            segment.r.end = project_point
+                            segment.meta['snapped'] = True
         return True
 
     def generate(self, debug = False):
@@ -199,6 +185,7 @@ class City(object):
         priority_queue.append(second_segment)
 
         while len(priority_queue) > 0 and len(self.segments) < SEGMENT_COUNT_LIMIT:
+            print(len(self.segments))
             # pop smallest r(ti, ri, qi) from meta
             min_t = None
             min_index = 0
