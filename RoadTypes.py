@@ -12,23 +12,13 @@ class Road(object):
 
 
 class Segment(object):
-    def __init__(self, start, end, t, q, width=None):
+    def __init__(self, start, end, t, meta):
         super(Segment, self).__init__()
         self.r = Road(start, end)
         # time-step delay before this road is evaluated
         self.t = 0 if t is None else t
         # meta-information relevant to global goals
-        self.q = dict() if q is None else q
-
-        self.width = 0
-        if width is None:
-            if q['highway']:
-                self.width = HIGHWAY_SEGMENT_WIDTH
-            else:
-                self.width = STREET_SEGMENT_WIDTH + \
-                    rand_in_limit(STREET_SEGMENT_WIDTH_OFFSET_LIMIT)
-        else:
-            self.width = width
+        self.meta = dict() if meta is None else meta
 
         self.successor = list()
         self.predecessor = list()

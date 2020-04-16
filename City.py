@@ -20,83 +20,108 @@ class City(object):
             QUADTREE_PARAMS_Y + QUADTREE_PARAMS_H
         ))
 
-    def gen_segment(self, start, t, q, dir, length, width=None):
+    def gen_length(self, is_highway):
+        if is_highway:
+            return HIGHWAY_SEGMENT_LENGTH + rand_in_limit(HIGHWAY_SEGMENT_LENGTH_OFFSET_LIMIT)
+        else:
+            return STREET_SEGMENT_LENGTH + rand_in_limit(STREET_SEGMENT_LENGTH_OFFSET_LIMIT)
+
+    def gen_segment(self, start, t, meta, dir, length):
         end = Point(
             start.x + length*math.sin(math.radians(dir)),
             start.y + length*math.cos(math.radians(dir))
         )
-        return Segment(start, end, t, q, width)
+        if 'width' not in meta:
+            if meta['highway']:
+                meta['width'] = HIGHWAY_SEGMENT_WIDTH
+            else:
+                meta['width'] = STREET_SEGMENT_WIDTH + \
+                    rand_in_limit(STREET_SEGMENT_WIDTH_OFFSET_LIMIT)
 
-    def gen_segment_follow(self, previous_segment, dir):
+        return Segment(start, end, t, meta)
+
+    # extend previous segment
+    def gen_segment_extend(self, previous_segment, dir):
         return self.gen_segment(
             previous_segment.r.end,
-            STRENCH_TIME_DELAY_HIGHWAY if previous_segment.q['highway'] else STRENCH_TIME_DELAY_STREET,
-            previous_segment.q,
+            EXTEND_TIME_DELAY_HIGHWAY if previous_segment.meta['highway'] else EXTEND_TIME_DELAY_STREET,
+            previous_segment.meta,
             dir,
-            previous_segment.length,
-            previous_segment.width
+            self.gen_length(previous_segment.meta['highway'])
         )
 
-    def gen_segment_branch(self, previous_segment, dir):
-        if previous_segment.q['highway']:
-            if rand_hit_thershold(HIGHWAY_DEGENERATE_PROBABILITY):
-                return self.gen_segment(
+    def gen_segment_branch(self, previous_segment, dir, should_down = False):
+        if should_down:
+            new_meta = previous_segment.meta.copy()
+            new_meta['highway'] = False
+            return self.gen_segment(
                     previous_segment.r.end,
-                    BRANCH_TIME_DELAY_HIGHWAY,
-                    {'highway': False},
+                    BRANCH_TIME_DELAY_STREET,
+                    new_meta,
                     dir,
-                    STREET_SEGMENT_LENGTH +
-                    rand_in_limit(STREET_SEGMENT_LENGTH_OFFSET_LIMIT)
-                )
-            else:
-                return self.gen_segment(
-                    previous_segment.r.end,
-                    BRANCH_TIME_DELAY_HIGHWAY,
-                    {'highway': True},
-                    dir,
-                    HIGHWAY_SEGMENT_LENGTH +
-                    rand_in_limit(HIGHWAY_SEGMENT_LENGTH_OFFSET_LIMIT)
-                )
+                    self.gen_length(new_meta['highway'])
+            )
         else:
             return self.gen_segment(
                 previous_segment.r.end,
-                BRANCH_TIME_DELAY_STREET,
-                {'highway': False},
+                BRANCH_TIME_DELAY_HIGHWAY if previous_segment.meta['highway'] else BRANCH_TIME_DELAY_STREET,
+                previous_segment.meta,
                 dir,
-                STREET_SEGMENT_LENGTH +
-                rand_in_limit(STREET_SEGMENT_LENGTH_OFFSET_LIMIT)
+                self.gen_length(previous_segment.meta['highway'])
             )
 
     def globalGoals(self, previous_segment):
         proposed_segments = list()
-        if 'snapped' not in previous_segment.q or not previous_segment.q['snapped']:
-
-            if previous_segment.q['highway']:
+        if True:#'snapped' not in previous_segment.meta or not previous_segment.meta['snapped']:
+            if previous_segment.meta['highway']:
+                # find extend direction with max heat
                 max_heat = None
                 max_heat_offset = 0
                 for offset in range(-HIGHWAY_CURVE_DIRECTION_OFFSET_LIMIT, HIGHWAY_CURVE_DIRECTION_OFFSET_LIMIT):
-                    curve_follow_segment = self.gen_segment_follow(
+                    extend_segment = self.gen_segment_extend(
                         previous_segment, previous_segment.dir() + offset)
-                    heat = self.heatmap.road_heat(curve_follow_segment.r)
+                    heat = self.heatmap.road_heat(extend_segment.r)
                     if max_heat is None or heat > max_heat:
                         max_heat = heat
                         max_heat_offset = offset
-                curve_follow_segment = self.gen_segment_follow(
-                    previous_segment, previous_segment.dir() + max_heat_offset)
-                proposed_segments.append(curve_follow_segment)
 
-                if max_heat > HIGHWAY_BRANCH_HEAT_THRESHOLD or rand_hit_thershold(HIGHWAY_BRANCH_PROBABILITY):
-                    if rand_hit_thershold(HIGHWAY_BRANCH_RIGHT_PROBABILITY):
-                        leftHighwayBranch = self.gen_segment_branch(
-                            previous_segment, previous_segment.dir() - 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT))
-                        proposed_segments.append(leftHighwayBranch)
+                extend_segment = self.gen_segment_extend(
+                    previous_segment, previous_segment.dir() + max_heat_offset)
+                proposed_segments.append(extend_segment)
+
+                # reach high density in heat map
+                if max_heat > HIGHWAY_BRANCH_HEAT_THRESHOLD :
+                    left_branch_segment = self.gen_segment_branch(
+                        previous_segment, 
+                        previous_segment.dir() - 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT),
+                        rand_hit_thershold(HIGHWAY_DEGENERATE_PROBABILITY)
+                    )
+                    right_branch_segment = self.gen_segment_branch(
+                        previous_segment, 
+                        previous_segment.dir() + 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT),
+                        rand_hit_thershold(HIGHWAY_DEGENERATE_PROBABILITY)
+                    )
+                    # branch at least once
+                    if rand_hit_thershold(HIGHWAY_BRANCH_LEFT_PROBABILITY):
+                        proposed_segments.append(left_branch_segment)
+                    elif rand_hit_thershold(HIGHWAY_BRANCH_RIGHT_PROBABILITY):
+                        proposed_segments.append(right_branch_segment)
                     else:
-                        rightHighwayBranch = self.gen_segment_branch(
+                        proposed_segments.append(left_branch_segment)
+                        proposed_segments.append(right_branch_segment)
+
+                elif rand_hit_thershold(HIGHWAY_BRANCH_PROBABILITY):
+                    if rand_hit_thershold(HIGHWAY_BRANCH_LEFT_PROBABILITY):
+                        left_branch_segment = self.gen_segment_branch(
+                            previous_segment, previous_segment.dir() - 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT))
+                        proposed_segments.append(left_branch_segment)
+                    if rand_hit_thershold(HIGHWAY_BRANCH_RIGHT_PROBABILITY):
+                        right_branch_segment = self.gen_segment_branch(
                             previous_segment, previous_segment.dir() + 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT))
-                        proposed_segments.append(rightHighwayBranch)
+                        proposed_segments.append(right_branch_segment)
 
             else:
-                straight_follow_segment = self.gen_segment_follow(
+                straight_follow_segment = self.gen_segment_extend(
                     previous_segment, previous_segment.dir() + rand_in_limit(STREET_CURVE_DIRECTION_OFFSET_LIMIT))
                 straight_heat = self.heatmap.road_heat(
                     straight_follow_segment.r)
@@ -138,13 +163,13 @@ class City(object):
                         return False
 
                     segment.r.end = cross
-                    segment.q['snapped'] = True
+                    segment.meta['snapped'] = True
 
             else:
                 # 2. snap to crossing within radius check
                 if distance_p2p(segment.r.end, other.r.end) <= ROAD_SNAP_DISTANCE:
                     segment.r.end = other.r.end
-                    segment.q['snapped'] = True
+                    segment.meta['snapped'] = True
 
                 # 3. intersection within radius check
                 distance = distance_p2l(segment.r.end, other.r)
@@ -153,7 +178,7 @@ class City(object):
                         project_point = point_projection(
                             segment.r.end, other.e.start, other.r.end)
                         segment.r.end = project_point
-                        segment.q['snapped'] = True
+                        segment.meta['snapped'] = True
         return True
 
     def generate(self):
@@ -167,7 +192,7 @@ class City(object):
         priority_queue.append(second_segment)
 
         while len(priority_queue) > 0 and len(self.segments) < SEGMENT_COUNT_LIMIT:
-            # pop smallest r(ti, ri, qi) from Q
+            # pop smallest r(ti, ri, qi) from meta
             min_t = None
             min_index = 0
             for i, segment in enumerate(priority_queue):
