@@ -70,6 +70,10 @@ class City(object):
     def globalGoals(self, previous_segment):
         proposed_segments = list()
         if 'snapped' not in previous_segment.q or not previous_segment.q['snapped']:
+            straight_follow_segment = self.gen_segment_follow(
+                previous_segment, previous_segment.dir() + rand_in_limit(STREET_CURVE_DIRECTION_OFFSET_LIMIT))
+            straight_heat = self.heatmap.road_heat(
+                straight_follow_segment.r)
 
             if previous_segment.q['highway']:
                 max_heat = None
@@ -85,33 +89,29 @@ class City(object):
                     previous_segment, previous_segment.dir() + max_heat_offset)
                 proposed_segments.append(curve_follow_segment)
 
-                if max_heat > HIGHWAY_BRANCH_HEAT_THRESHOLD or rand_hit_thershold(HIGHWAY_BRANCH_PROBABILITY):
+                if max_heat > HIGHWAY_BRANCH_HEAT_THRESHOLD:
                     if rand_hit_thershold(HIGHWAY_BRANCH_RIGHT_PROBABILITY):
                         leftHighwayBranch = self.gen_segment_branch(
                             previous_segment, previous_segment.dir() - 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT))
                         proposed_segments.append(leftHighwayBranch)
-                    else:
+                    if rand_hit_thershold(HIGHWAY_BRANCH_RIGHT_PROBABILITY):
                         rightHighwayBranch = self.gen_segment_branch(
                             previous_segment, previous_segment.dir() + 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT))
                         proposed_segments.append(rightHighwayBranch)
 
             else:
-                straight_follow_segment = self.gen_segment_follow(
-                    previous_segment, previous_segment.dir() + rand_in_limit(STREET_CURVE_DIRECTION_OFFSET_LIMIT))
-                straight_heat = self.heatmap.road_heat(
-                    straight_follow_segment.r)
                 if straight_heat > STREET_HEAT_THRESHOLD:
                     proposed_segments.append(straight_follow_segment)
 
-                if rand_hit_thershold(STREET_BRANCH_PROBABILITY):
-                    if rand_hit_thershold(STREET_BRANCH_LEFT_PROBABILITY):
-                        leftBranch = self.gen_segment_branch(previous_segment, previous_segment.dir(
-                        ) - 90 + rand_in_limit(STREET_BRANCH_DIRECTION_OFFSET_LIMIT))
-                        proposed_segments.append(leftBranch)
-                    if rand_hit_thershold(STREET_BRANCH_RIGHT_PROBABILITY):
-                        rightBranch = self.gen_segment_branch(previous_segment, previous_segment.dir(
-                        ) + 90 + rand_in_limit(STREET_BRANCH_DIRECTION_OFFSET_LIMIT))
-                        proposed_segments.append(rightBranch)
+            if straight_heat > STREET_HEAT_THRESHOLD:
+                if rand_hit_thershold(STREET_BRANCH_LEFT_PROBABILITY):
+                    leftBranch = self.gen_segment_branch(previous_segment, previous_segment.dir(
+                    ) - 90 + rand_in_limit(STREET_BRANCH_DIRECTION_OFFSET_LIMIT))
+                    proposed_segments.append(leftBranch)
+                if rand_hit_thershold(STREET_BRANCH_RIGHT_PROBABILITY):
+                    rightBranch = self.gen_segment_branch(previous_segment, previous_segment.dir(
+                    ) + 90 + rand_in_limit(STREET_BRANCH_DIRECTION_OFFSET_LIMIT))
+                    proposed_segments.append(rightBranch)
 
         return proposed_segments
 
