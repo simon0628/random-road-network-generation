@@ -56,29 +56,20 @@ class City(object):
         new_meta['snapped'] = False
         new_meta['branched'] = True
         new_meta.pop('width') # delete width to generate new width
-        if should_down:
-            new_meta['highway'] = False
-            return self.gen_segment(
-                    previous_segment.r.end,
-                    BRANCH_TIME_DELAY_STREET,
-                    new_meta,
-                    dir,
-                    self.gen_length(new_meta['highway'])
-            )
-        else:
-            return self.gen_segment(
-                previous_segment.r.end,
-                BRANCH_TIME_DELAY_HIGHWAY if previous_segment.meta['highway'] else BRANCH_TIME_DELAY_STREET,
-                new_meta,
-                dir,
-                self.gen_length(previous_segment.meta['highway'])
-            )
+
+        return self.gen_segment(
+            previous_segment.r.end,
+            BRANCH_TIME_DELAY_HIGHWAY if previous_segment.meta['highway'] else BRANCH_TIME_DELAY_STREET,
+            new_meta,
+            dir,
+            self.gen_length(previous_segment.meta['highway'])
+        )
 
     def globalGoals(self, previous_segment):
         proposed_segments = list()
         if 'snapped' not in previous_segment.meta or not previous_segment.meta['snapped']:
             straight_follow_segment = self.gen_segment_extend(
-                previous_segment, previous_segment.dir() + rand_in_limit(STREET_CURVE_DIRECTION_OFFSET_LIMIT))
+                previous_segment, previous_segment.dir())
             straight_heat = self.heatmap.road_heat(
                 straight_follow_segment.r)
            
@@ -100,23 +91,20 @@ class City(object):
 
                 # reach high density in heat map
                 if max_heat > HIGHWAY_BRANCH_HEAT_THRESHOLD :
-                    if 'branched' not in previous_segment.meta or not previous_segment.meta['branched']:
-                        left_branch_segment = self.gen_segment_branch(
-                            previous_segment, 
-                            previous_segment.dir() - 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT)
-                        )
-                        right_branch_segment = self.gen_segment_branch(
-                            previous_segment, 
-                            previous_segment.dir() + 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT)
-                        )
-                        # branch at least once
-                        if rand_hit_thershold(HIGHWAY_BRANCH_LEFT_PROBABILITY):
-                            proposed_segments.append(left_branch_segment)
-                        elif rand_hit_thershold(HIGHWAY_BRANCH_RIGHT_PROBABILITY):
-                            proposed_segments.append(right_branch_segment)
-                        else:
-                            proposed_segments.append(left_branch_segment)
-                            proposed_segments.append(right_branch_segment)
+                    left_branch_segment = self.gen_segment_branch(
+                        previous_segment, 
+                        previous_segment.dir() - 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT)
+                    )
+                    right_branch_segment = self.gen_segment_branch(
+                        previous_segment, 
+                        previous_segment.dir() + 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT)
+                    )
+                    # branch at least once
+                    if rand_hit_thershold(HIGHWAY_BRANCH_LEFT_PROBABILITY):
+                        proposed_segments.append(left_branch_segment)
+                    elif rand_hit_thershold(HIGHWAY_BRANCH_RIGHT_PROBABILITY):
+                        proposed_segments.append(right_branch_segment)
+
 
             else:
                 if straight_heat > STREET_HEAT_THRESHOLD:
@@ -192,6 +180,7 @@ class City(object):
         priority_queue.append(second_segment)
 
         while len(priority_queue) > 0 and len(self.segments) < SEGMENT_COUNT_LIMIT:
+            print(len(self.segments))
             # pop smallest r(ti, ri, qi) from meta
             min_t = None
             min_index = 0
