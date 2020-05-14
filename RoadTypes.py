@@ -9,6 +9,11 @@ class Road(object):
         super(Road, self).__init__()
         self.start = start
         self.end = end
+    def to_string(self):
+        res = 'start: ( %f, %f )' % (self.start.x, self.start.y)
+        res += ' end: ( %f, %f )' % (self.end.x, self.end.y)
+        return res
+
 
 
 class Segment(object):

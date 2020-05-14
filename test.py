@@ -3,6 +3,13 @@ from City import City
 from RoadTypes import Segment
 import numpy as np
 import time
+import logging
+
+LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
+DATE_FORMAT = "%m/%d/%Y %H:%M:%S %p"
+
+logging.basicConfig(filename='road_generate.log', level=logging.DEBUG, format=LOG_FORMAT, datefmt=DATE_FORMAT, filemode='w')
+
 
 def draw(debug = False):
     if debug:

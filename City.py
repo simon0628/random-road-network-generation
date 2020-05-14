@@ -5,7 +5,7 @@ from Point import *
 import noise
 import math
 from pyqtree import Index
-
+import logging
 
 class City(object):
     def __init__(self):
@@ -84,6 +84,9 @@ class City(object):
 
     def globalGoals(self, previous_segment):
         proposed_segments = list()
+
+        logging.info("previous: " + previous_segment.road.to_string())
+
         if 'snapped' not in previous_segment.meta or not previous_segment.meta['snapped']:
             straight_follow_segment = self.gen_segment_follow(
                 previous_segment, previous_segment.dir() + rand_in_limit(STREET_CURVE_DIRECTION_OFFSET_LIMIT))
@@ -91,6 +94,7 @@ class City(object):
                 straight_follow_segment.road)
 
             if previous_segment.meta['highway']:
+                logging.info("is highway")
                 max_heat = None
                 max_heat_offset = 0
                 for offset in range(-HIGHWAY_CURVE_DIRECTION_OFFSET_LIMIT, HIGHWAY_CURVE_DIRECTION_OFFSET_LIMIT):
@@ -103,30 +107,38 @@ class City(object):
                 curve_follow_segment = self.gen_segment_follow(
                     previous_segment, previous_segment.dir() + max_heat_offset)
                 proposed_segments.append(curve_follow_segment)
+                logging.info("---gen [highway] curve follow: " + curve_follow_segment.road.to_string())
 
                 if max_heat > HIGHWAY_BRANCH_HEAT_THRESHOLD:
                     if rand_hit_thershold(HIGHWAY_BRANCH_RIGHT_PROBABILITY):
                         leftHighwayBranch = self.gen_segment_branch(
                             previous_segment, previous_segment.dir() - 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT))
                         proposed_segments.append(leftHighwayBranch)
+                        logging.info("---gen [highway] left branch: " + leftHighwayBranch.road.to_string())
+
                     if rand_hit_thershold(HIGHWAY_BRANCH_RIGHT_PROBABILITY):
                         rightHighwayBranch = self.gen_segment_branch(
                             previous_segment, previous_segment.dir() + 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT))
                         proposed_segments.append(rightHighwayBranch)
+                        logging.info("---gen [highway] right branch: " + rightHighwayBranch.road.to_string())
 
             else:
                 if rand_hit_thershold(straight_heat*3):
                     proposed_segments.append(straight_follow_segment)
+                    logging.info("---gen [street] follow branch: " + straight_follow_segment.road.to_string())
 
             if rand_hit_thershold(straight_heat*3):
                 if rand_hit_thershold(STREET_BRANCH_LEFT_PROBABILITY):
                     leftBranch = self.gen_segment_branch(previous_segment, previous_segment.dir(
                     ) - 90 + rand_in_limit(STREET_BRANCH_DIRECTION_OFFSET_LIMIT))
                     proposed_segments.append(leftBranch)
+                    logging.info("---gen [highway/street] left branch: " + leftBranch.road.to_string())
+
                 if rand_hit_thershold(STREET_BRANCH_RIGHT_PROBABILITY):
                     rightBranch = self.gen_segment_branch(previous_segment, previous_segment.dir(
                     ) + 90 + rand_in_limit(STREET_BRANCH_DIRECTION_OFFSET_LIMIT))
                     proposed_segments.append(rightBranch)
+                    logging.info("---gen [highway/street] left branch: " + rightBranch.road.to_string())
 
         return proposed_segments
 
@@ -200,6 +212,12 @@ class City(object):
                 for i, newSegment in enumerate(newSegments):
                     newSegments[i].delay = min_segment.delay + 1 + newSegments[i].delay
                     priority_queue.append(newSegment)
+
+            else:
+                logging.info('segment is rejected!, which is :')
+                logging.info('   ' + min_segment.road.to_string())
+                logging.info('   is highway: ' + str(min_segment.meta['highway']))
+
 
     def append_segment(self, segment):
         self.segments.append(segment)
