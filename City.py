@@ -35,6 +35,7 @@ class City(object):
         if new_segment:
             meta['id'] = self.road_id
             self.road_id += 1
+            meta['snapped'] = False
             if meta['highway']:
                 meta['width'] = HIGHWAY_SEGMENT_WIDTH
             else:
@@ -54,7 +55,6 @@ class City(object):
 
     def gen_segment_branch(self, previous_segment, dir):
         new_meta = previous_segment.meta
-
         if previous_segment.meta['highway']:
             if rand_hit_thershold(HIGHWAY_DEGENERATE_PROBABILITY):
                 new_meta['highway'] = False

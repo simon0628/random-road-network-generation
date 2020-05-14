@@ -21,7 +21,7 @@ def draw(debug = False):
                 segment.road.end.x],
                 [segment.road.start.y,
                 segment.road.end.y],
-                color = 'road',
+                color = 'k',
                 linewidth = segment.meta['width']/2
             )
             else:
@@ -53,7 +53,7 @@ def draw(debug = False):
                     segment.road.end.x],
                     [segment.road.start.y,
                     segment.road.end.y],
-                    color = 'k',
+                    color = 'b',
                     linewidth = segment.meta['width']/2
                 )
         plt.show()
