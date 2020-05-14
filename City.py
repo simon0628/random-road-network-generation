@@ -21,7 +21,7 @@ class City(object):
             QUADTREE_PARAMS_Y + QUADTREE_PARAMS_H
         ))
 
-    def gen_segment(self, start, delay, meta, dir, new_segment = False): 
+    def gen_segment(self, start, delay, meta, dir, new_segment = True): 
         length = 0
         if meta['highway']:
             length = HIGHWAY_SEGMENT_LENGTH + rand_in_limit(HIGHWAY_SEGMENT_LENGTH_OFFSET_LIMIT)
@@ -41,6 +41,9 @@ class City(object):
             else:
                 meta['width'] = STREET_SEGMENT_WIDTH + \
                     rand_in_limit(STREET_SEGMENT_WIDTH_OFFSET_LIMIT)
+            meta['length'] = length
+        else:
+            meta['length'] += length
 
         return Segment(start, end, delay, meta)
 
@@ -54,7 +57,7 @@ class City(object):
         )
 
     def gen_segment_branch(self, previous_segment, dir):
-        new_meta = previous_segment.meta
+        new_meta = previous_segment.meta.copy()
         if previous_segment.meta['highway']:
             if rand_hit_thershold(HIGHWAY_DEGENERATE_PROBABILITY):
                 new_meta['highway'] = False
@@ -186,12 +189,10 @@ class City(object):
     def generate(self):
         priority_queue = list()
 
-        init_segment = Segment(Point(0, 0), Point(
-            HIGHWAY_SEGMENT_LENGTH, 0), 0, {'highway': True})
-        second_segment = Segment(
-            Point(0, 0), Point(-HIGHWAY_SEGMENT_LENGTH, 0), 0, {'highway': True})
-        priority_queue.append(init_segment)
-        priority_queue.append(second_segment)
+        priority_queue.append(self.gen_segment(Point(0, 0), 0, {'highway': True}, 0, HIGHWAY_SEGMENT_LENGTH))
+        priority_queue.append(self.gen_segment(Point(0, 0), 0, {'highway': True}, 90, HIGHWAY_SEGMENT_LENGTH))
+        priority_queue.append(self.gen_segment(Point(0, 0), 0, {'highway': True}, 180, HIGHWAY_SEGMENT_LENGTH))
+        priority_queue.append(self.gen_segment(Point(0, 0), 0, {'highway': True}, -90, HIGHWAY_SEGMENT_LENGTH))
 
         while len(priority_queue) > 0 and len(self.segments) < SEGMENT_COUNT_LIMIT:
             if len(self.segments) % 100 == 0:
@@ -217,7 +218,20 @@ class City(object):
                 logging.info('segment is rejected!, which is :')
                 logging.info('   ' + min_segment.road.to_string())
                 logging.info('   is highway: ' + str(min_segment.meta['highway']))
+        self.post_process()
 
+
+    def post_process(self):
+        max_length = 0
+        for segment in self.segments:
+            if not segment.meta['highway']:
+                if segment.meta['length'] > max_length:
+                    max_length = segment.meta['length']
+                    
+        for i in range(len(self.segments)):
+            if not self.segments[i].meta['highway']:
+                self.segments[i].meta['width'] = self.segments[i].meta['length'] * STREET_SEGMENT_WIDTH * 1.0/max_length
+            
 
     def append_segment(self, segment):
         self.segments.append(segment)
