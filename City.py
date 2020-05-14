@@ -100,10 +100,10 @@ class City(object):
                         proposed_segments.append(rightHighwayBranch)
 
             else:
-                if straight_heat > STREET_HEAT_THRESHOLD:
+                if rand_hit_thershold(straight_heat*3):
                     proposed_segments.append(straight_follow_segment)
 
-            if straight_heat > STREET_HEAT_THRESHOLD:
+            if rand_hit_thershold(straight_heat*3):
                 if rand_hit_thershold(STREET_BRANCH_LEFT_PROBABILITY):
                     leftBranch = self.gen_segment_branch(previous_segment, previous_segment.dir(
                     ) - 90 + rand_in_limit(STREET_BRANCH_DIRECTION_OFFSET_LIMIT))
@@ -167,6 +167,8 @@ class City(object):
         priority_queue.append(second_segment)
 
         while len(priority_queue) > 0 and len(self.segments) < SEGMENT_COUNT_LIMIT:
+            if len(self.segments) % 100 == 0:
+                print(len(self.segments))
             # pop smallest r(ti, ri, qi) from Q
             min_t = None
             min_index = 0
