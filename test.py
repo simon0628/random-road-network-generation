@@ -8,46 +8,46 @@ def draw(debug = False):
     if debug:
         plt.ion()
         for segment in city.segments:
-            if segment.q['highway']:
+            if segment.meta['highway']:
                 plt.plot(
-                [segment.r.start.x,
-                segment.r.end.x],
-                [segment.r.start.y,
-                segment.r.end.y],
-                color = 'r',
-                linewidth = segment.width/2
+                [segment.road.start.x,
+                segment.road.end.x],
+                [segment.road.start.y,
+                segment.road.end.y],
+                color = 'road',
+                linewidth = segment.meta['width']/2
             )
             else:
                 plt.plot(
-                    [segment.r.start.x,
-                    segment.r.end.x],
-                    [segment.r.start.y,
-                    segment.r.end.y],
+                    [segment.road.start.x,
+                    segment.road.end.x],
+                    [segment.road.start.y,
+                    segment.road.end.y],
                     color = 'b',
-                    linewidth = segment.width/2
+                    linewidth = segment.meta['width']/2
                 )
             plt.draw()
             plt.pause(0.001)
 
     else:
         for segment in city.segments:
-            if segment.q['highway']:
+            if segment.meta['highway']:
                 plt.plot(
-                [segment.r.start.x,
-                segment.r.end.x],
-                [segment.r.start.y,
-                segment.r.end.y],
+                [segment.road.start.x,
+                segment.road.end.x],
+                [segment.road.start.y,
+                segment.road.end.y],
                 color = 'k',
-                linewidth = segment.width/2
+                linewidth = segment.meta['width']/2
             )
             else:
                 plt.plot(
-                    [segment.r.start.x,
-                    segment.r.end.x],
-                    [segment.r.start.y,
-                    segment.r.end.y],
+                    [segment.road.start.x,
+                    segment.road.end.x],
+                    [segment.road.start.y,
+                    segment.road.end.y],
                     color = 'k',
-                    linewidth = segment.width/2
+                    linewidth = segment.meta['width']/2
                 )
         plt.show()
 
