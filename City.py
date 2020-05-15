@@ -13,8 +13,16 @@ class City(object):
         self.heatmap = HeatMap()
         self.segments = list()
         self.road_id = 0
+        self.points = list()
 
-        self.spindex = Index(bbox=(
+        self.road_index = Index(bbox=(
+            QUADTREE_PARAMS_X,
+            QUADTREE_PARAMS_Y,
+            QUADTREE_PARAMS_X + QUADTREE_PARAMS_W,
+            QUADTREE_PARAMS_Y + QUADTREE_PARAMS_H
+        ))
+
+        self.node_index = Index(bbox=(
             QUADTREE_PARAMS_X,
             QUADTREE_PARAMS_Y,
             QUADTREE_PARAMS_X + QUADTREE_PARAMS_W,
@@ -44,6 +52,9 @@ class City(object):
             meta['length'] = length
         else:
             meta['length'] += length
+
+        start.r.add(meta['id'])
+        end.r.add(meta['id'])
 
         return Segment(start, end, delay, meta)
 
@@ -148,7 +159,7 @@ class City(object):
     def localConstraints(self, segment, segments):
         # return True
         minx, miny, maxx, maxy = segment.getBox()
-        matchSegments = self.spindex.intersect(
+        matchSegments = self.road_index.intersect(
             (minx - ROAD_SNAP_DISTANCE,
              miny - ROAD_SNAP_DISTANCE,
              maxx + ROAD_SNAP_DISTANCE,
@@ -235,7 +246,7 @@ class City(object):
 
     def append_segment(self, segment):
         self.segments.append(segment)
-        self.spindex.insert(segment, (segment.getBox()))
+        self.road_index.insert(segment, (segment.getBox()))
 
 
 class HeatMap(object):
