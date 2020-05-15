@@ -64,7 +64,7 @@ class CityWay(OSMWay):
         self.length = length
 
     def set_width(self, width):
-        self.attrs['streetWdith'] = width
+        self.attrs['streetWidth'] = width
 
 
 
