@@ -13,7 +13,8 @@ class City(object):
         self.heatmap = HeatMap()
         self.segments = list()
         self.road_id = 0
-        self.points = list()
+        self.nodes = list()
+        self.node_id = 0
 
         self.road_index = Index(bbox=(
             QUADTREE_PARAMS_X,
@@ -29,6 +30,21 @@ class City(object):
             QUADTREE_PARAMS_Y + QUADTREE_PARAMS_H
         ))
 
+    def add_node(self, p):
+        # search for dup
+        near_node_ids = self.node_index.intersect((p.x, p.y, p.x, p.y))
+
+        if len(near_node_ids) > 0: # dup exists
+            # if the new node A is quite close to an existing node B, use B
+            return near_node_ids[0]
+        else:
+            # add a new node
+            self.nodes.append(Point(p.x, p.y))
+            self.node_index.insert(
+                self.node_id, (p.x-NODE_SNAP_DISTANCE, p.y-NODE_SNAP_DISTANCE, p.x+NODE_SNAP_DISTANCE, p.y+NODE_SNAP_DISTANCE))
+            self.node_id = self.node_id + 1
+            return self.node_id - 1
+
     def gen_segment(self, start, delay, meta, dir, new_segment = True): 
         length = 0
         if meta['highway']:
@@ -40,6 +56,13 @@ class City(object):
             start.x + length*math.sin(math.radians(dir)),
             start.y + length*math.cos(math.radians(dir))
         )
+        meta['start_id'] = self.add_node(start)
+        meta['end_id'] = self.add_node(end)
+
+
+        start = self.nodes[meta['start_id']]
+        end = self.nodes[meta['end_id']]
+
         if new_segment:
             meta['id'] = self.road_id
             self.road_id += 1
@@ -53,8 +76,9 @@ class City(object):
         else:
             meta['length'] += length
 
-        start.r.add(meta['id'])
-        end.r.add(meta['id'])
+        self.nodes[meta['start_id']].r.append(meta['id'])
+        self.nodes[meta['end_id']].r.append(meta['id'])
+        logging.info('append road, meta: ' +str(meta))
 
         return Segment(start, end, delay, meta)
 
@@ -107,19 +131,20 @@ class City(object):
             straight_heat = self.heatmap.road_heat(
                 straight_follow_segment.road)
 
+            max_heat = None
+            max_heat_offset = 0
+            for offset in range(-HIGHWAY_CURVE_DIRECTION_OFFSET_LIMIT, HIGHWAY_CURVE_DIRECTION_OFFSET_LIMIT):
+                curve_follow_segment = self.gen_segment_follow(
+                    previous_segment, previous_segment.dir() + offset)
+                heat = self.heatmap.road_heat(curve_follow_segment.road)
+                if max_heat is None or heat > max_heat:
+                    max_heat = heat
+                    max_heat_offset = offset
+            curve_follow_segment = self.gen_segment_follow(
+                previous_segment, previous_segment.dir() + max_heat_offset)
+
             if previous_segment.meta['highway']:
                 logging.info("is highway")
-                max_heat = None
-                max_heat_offset = 0
-                for offset in range(-HIGHWAY_CURVE_DIRECTION_OFFSET_LIMIT, HIGHWAY_CURVE_DIRECTION_OFFSET_LIMIT):
-                    curve_follow_segment = self.gen_segment_follow(
-                        previous_segment, previous_segment.dir() + offset)
-                    heat = self.heatmap.road_heat(curve_follow_segment.road)
-                    if max_heat is None or heat > max_heat:
-                        max_heat = heat
-                        max_heat_offset = offset
-                curve_follow_segment = self.gen_segment_follow(
-                    previous_segment, previous_segment.dir() + max_heat_offset)
                 proposed_segments.append(curve_follow_segment)
                 logging.info("---gen [highway] curve follow: " + curve_follow_segment.road.to_string())
 
@@ -137,9 +162,9 @@ class City(object):
                         logging.info("---gen [highway] right branch: " + rightHighwayBranch.road.to_string())
 
             else:
-                if rand_hit_thershold(straight_heat*3):
-                    proposed_segments.append(straight_follow_segment)
-                    logging.info("---gen [street] follow branch: " + straight_follow_segment.road.to_string())
+                if rand_hit_thershold(max_heat*3):
+                    proposed_segments.append(curve_follow_segment)
+                    logging.info("---gen [street] follow branch: " + curve_follow_segment.road.to_string())
 
             if rand_hit_thershold(straight_heat*3):
                 if rand_hit_thershold(STREET_BRANCH_LEFT_PROBABILITY):
@@ -241,8 +266,14 @@ class City(object):
                     
         for i in range(len(self.segments)):
             if not self.segments[i].meta['highway']:
-                self.segments[i].meta['width'] = self.segments[i].meta['length'] * STREET_SEGMENT_WIDTH * 1.0/max_length
-            
+                if self.segments[i].meta['length'] * 1.0/max_length < 0.33:
+                    self.segments[i].meta['width'] = 1
+                elif self.segments[i].meta['length'] * 1.0/max_length < 0.66:
+                    self.segments[i].meta['width'] = 2
+                else:
+                    self.segments[i].meta['width'] = 3
+        
+
 
     def append_segment(self, segment):
         self.segments.append(segment)

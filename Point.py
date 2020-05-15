@@ -9,7 +9,7 @@ class Point(object):
         super(Point, self).__init__()
         self.x = x
         self.y = y
-        self.r = set()
+        self.r = list()
 
     def subtract(self, p2):
         return Point(self.x - p2.x, self.y - p2.y)
