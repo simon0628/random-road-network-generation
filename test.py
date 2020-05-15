@@ -4,11 +4,12 @@ from RoadTypes import Segment
 import numpy as np
 import time
 import logging
+from Converter import *
 
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
 DATE_FORMAT = "%m/%d/%Y %H:%M:%S %p"
 
-logging.basicConfig(filename='road_generate.log', level=logging.DEBUG, format=LOG_FORMAT, datefmt=DATE_FORMAT, filemode='w')
+logging.basicConfig(filename='road_generate.log', level=logging.INFO, format=LOG_FORMAT, datefmt=DATE_FORMAT, filemode='w')
 
 
 def draw():
@@ -45,5 +46,7 @@ city.generate()
 
 
 print(len(city.segments))
-draw()
 
+generate_osm(city.nodes, city.ways, 1000, 'test.osm', debug = False)
+
+draw()

@@ -6,15 +6,18 @@ import noise
 import math
 from pyqtree import Index
 import logging
+from osmtype import *
 
 class City(object):
     def __init__(self):
         super(City, self).__init__()
         self.heatmap = HeatMap()
         self.segments = list()
-        self.road_id = 0
+        
         self.nodes = list()
         self.node_id = 0
+        self.ways = dict()
+        self.road_id = 0
 
         self.road_index = Index(bbox=(
             QUADTREE_PARAMS_X,
@@ -39,13 +42,45 @@ class City(object):
             return near_node_ids[0]
         else:
             # add a new node
-            self.nodes.append(Point(p.x, p.y))
+            self.nodes.append(Node(self.node_id, p.x, p.y, 0))
             self.node_index.insert(
                 self.node_id, (p.x-NODE_SNAP_DISTANCE, p.y-NODE_SNAP_DISTANCE, p.x+NODE_SNAP_DISTANCE, p.y+NODE_SNAP_DISTANCE))
             self.node_id = self.node_id + 1
             return self.node_id - 1
 
+
+    def append_segment(self, segment):
+        segment.meta['start_id'] = self.add_node(segment.road.start)
+        segment.meta['end_id'] = self.add_node(segment.road.end)
+        
+
+        if segment.meta['new_segment']:
+            segment.meta['id'] = self.road_id
+            self.road_id += 1
+            segment.meta['nodes'] = list()
+            segment.meta['nodes'].append(segment.meta['start_id'])
+            segment.meta['nodes'].append(segment.meta['end_id'])
+
+            self.ways[segment.meta['id']] = Way(segment.meta['id'], segment.meta['nodes'], segment.meta['highway'], segment.meta['length'])
+        else:
+            segment.meta['nodes'].append(segment.meta['end_id'])
+
+            self.ways[segment.meta['id']].nodes_id.append(segment.meta['end_id'])
+            self.ways[segment.meta['id']].length += segment.meta['length']
+
+
+        # self.nodes[segment.meta['start_id']].r.append(segment.meta['id'])
+        # self.nodes[segment.meta['end_id']].r.append(segment.meta['id'])
+
+        self.segments.append(segment)
+        self.road_index.insert(segment, (segment.getBox()))
+        logging.info('append road, meta: ' +str(segment.meta) + ' road: ' + segment.road.to_string())
+
+
+    # operating only meta here
     def gen_segment(self, start, delay, meta, dir, new_segment = True): 
+        meta = meta.copy()
+        
         length = 0
         if meta['highway']:
             length = HIGHWAY_SEGMENT_LENGTH + rand_in_limit(HIGHWAY_SEGMENT_LENGTH_OFFSET_LIMIT)
@@ -56,16 +91,13 @@ class City(object):
             start.x + length*math.sin(math.radians(dir)),
             start.y + length*math.cos(math.radians(dir))
         )
-        meta['start_id'] = self.add_node(start)
-        meta['end_id'] = self.add_node(end)
 
-
-        start = self.nodes[meta['start_id']]
-        end = self.nodes[meta['end_id']]
+        near_node_ids = self.node_index.intersect((end.x, end.y, end.x, end.y))
+        if len(near_node_ids) > 0: # dup exists
+            # if the new node A is quite close to an existing node B, use B
+            end = self.nodes[near_node_ids[0]]
 
         if new_segment:
-            meta['id'] = self.road_id
-            self.road_id += 1
             meta['snapped'] = False
             if meta['highway']:
                 meta['width'] = HIGHWAY_SEGMENT_WIDTH
@@ -73,20 +105,16 @@ class City(object):
                 meta['width'] = STREET_SEGMENT_WIDTH + \
                     rand_in_limit(STREET_SEGMENT_WIDTH_OFFSET_LIMIT)
             meta['length'] = length
-
-            meta['nodes'] = list()
-            meta['nodes'].append(meta['start_id'])
-            meta['nodes'].append(meta['end_id'])
+            meta['new_segment'] = True
 
         else:
             meta['length'] += length
-            meta['nodes'].append(meta['end_id'])
+            meta['new_segment'] = False
 
-        self.nodes[meta['start_id']].r.append(meta['id'])
-        self.nodes[meta['end_id']].r.append(meta['id'])
-        logging.info('append road, meta: ' +str(meta))
+        res = Segment(start, end, delay, meta)
+        logging.debug('gen new road, meta: ' +str(meta) + ' road: ' + res.road.to_string())
 
-        return Segment(start, end, delay, meta)
+        return res
 
     def gen_segment_follow(self, previous_segment, dir):
         return self.gen_segment(
@@ -269,22 +297,21 @@ class City(object):
             if not segment.meta['highway']:
                 if segment.meta['length'] > max_length:
                     max_length = segment.meta['length']
-                    
-        for i in range(len(self.segments)):
-            if not self.segments[i].meta['highway']:
-                if self.segments[i].meta['length'] * 1.0/max_length < 0.33:
-                    self.segments[i].meta['width'] = 1
-                elif self.segments[i].meta['length'] * 1.0/max_length < 0.66:
-                    self.segments[i].meta['width'] = 2
+
+
+        for way_key, way_value in self.ways.items():
+            if not way_value.is_highway:
+                if way_value.length * 1.0/ max_length < 0.33:
+                    self.ways[way_key].width = 1
+
+                elif way_value.length * 1.0/max_length < 0.66:
+                    self.ways[way_key].width = 2
+
                 else:
-                    self.segments[i].meta['width'] = 3
+                    self.ways[way_key].width = 3
+            else:
+                self.ways[way_key].width = HIGHWAY_SEGMENT_WIDTH
         
-
-
-    def append_segment(self, segment):
-        self.segments.append(segment)
-        self.road_index.insert(segment, (segment.getBox()))
-
 
 class HeatMap(object):
     def road_heat(self, road):

@@ -15,7 +15,6 @@ class Road(object):
         return res
 
 
-
 class Segment(object):
     def __init__(self, start, end, delay, meta):
         super(Segment, self).__init__()
