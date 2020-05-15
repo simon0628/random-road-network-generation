@@ -1,6 +1,5 @@
-from math import fabs, sqrt
 import random
-from Point import Point
+from src.Point import Point
 
 
 def min_intersect_degree(d1, d2):

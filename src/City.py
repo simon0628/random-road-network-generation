@@ -1,4 +1,5 @@
-from RoadTypes import Segment
+from __future__ import print_function
+from RoadTypes import *
 from Constants import *
 from Utils import *
 from Point import *
@@ -6,13 +7,13 @@ import noise
 import math
 from pyqtree import Index
 import logging
-from osmtype import *
 
 class City(object):
-    def __init__(self):
+    def __init__(self, target_size):
         super(City, self).__init__()
         self.heatmap = HeatMap()
         self.segments = list()
+        self.target_size = target_size
         
         self.nodes = list()
         self.node_id = 0
@@ -42,7 +43,7 @@ class City(object):
             return near_node_ids[0]
         else:
             # add a new node
-            self.nodes.append(Node(self.node_id, p.x, p.y, 0))
+            self.nodes.append(CityNode(self.node_id, p.x, p.y))
             self.node_index.insert(
                 self.node_id, (p.x-NODE_SNAP_DISTANCE, p.y-NODE_SNAP_DISTANCE, p.x+NODE_SNAP_DISTANCE, p.y+NODE_SNAP_DISTANCE))
             self.node_id = self.node_id + 1
@@ -61,7 +62,7 @@ class City(object):
             segment.meta['nodes'].append(segment.meta['start_id'])
             segment.meta['nodes'].append(segment.meta['end_id'])
 
-            self.ways[segment.meta['id']] = Way(segment.meta['id'], segment.meta['nodes'], segment.meta['highway'], segment.meta['length'])
+            self.ways[segment.meta['id']] = CityWay(segment.meta['id'], segment.meta['nodes'], segment.meta['highway'], segment.meta['length'])
         else:
             segment.meta['nodes'].append(segment.meta['end_id'])
 
@@ -264,9 +265,9 @@ class City(object):
         priority_queue.append(self.gen_segment(Point(0, 0), 0, {'highway': True}, 180, HIGHWAY_SEGMENT_LENGTH))
         priority_queue.append(self.gen_segment(Point(0, 0), 0, {'highway': True}, -90, HIGHWAY_SEGMENT_LENGTH))
 
-        while len(priority_queue) > 0 and len(self.segments) < SEGMENT_COUNT_LIMIT:
-            if len(self.segments) % 100 == 0:
-                print(len(self.segments))
+        while len(priority_queue) > 0 and len(self.segments) < self.target_size:
+
+            print('\r %d / %d' % (len(self.segments)+1, self.target_size ), end='')
             # pop smallest road(ti, ri, qi) from Q
             min_t = None
             min_index = 0
@@ -289,7 +290,7 @@ class City(object):
                 logging.info('   ' + min_segment.road.to_string())
                 logging.info('   is highway: ' + str(min_segment.meta['highway']))
         self.post_process()
-
+        print('')
 
     def post_process(self):
         max_length = 0
@@ -300,17 +301,19 @@ class City(object):
 
 
         for way_key, way_value in self.ways.items():
+            width = 0
             if not way_value.is_highway:
                 if way_value.length * 1.0/ max_length < 0.33:
-                    self.ways[way_key].width = 1
+                    width = 1
 
                 elif way_value.length * 1.0/max_length < 0.66:
-                    self.ways[way_key].width = 2
+                    width = 2
 
                 else:
-                    self.ways[way_key].width = 3
+                    width = 3
             else:
-                self.ways[way_key].width = HIGHWAY_SEGMENT_WIDTH
+                width = HIGHWAY_SEGMENT_WIDTH
+            self.ways[way_key].set_width(width)
         
 
 class HeatMap(object):

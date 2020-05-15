@@ -1,7 +1,5 @@
-import math
-from Constants import *
-from Utils import rand_in_limit
-from Point import *
+from src.Point import *
+from src.OSMGenerator import OSMNode, OSMWay
 
 
 class Road(object):
@@ -49,3 +47,31 @@ class Segment(object):
         y1 = self.road.start.y
         y2 = self.road.end.y
         return min([x1, x2]), min([y1, y2]), max([x1, x2]), max([y1, y2])
+
+
+class CityNode(OSMNode):
+    """docstring for Node"""
+
+    def __init__(self, node_id, x, y):
+        attrs = dict()
+        attrs['type'] = 'Smart'
+        super(CityNode, self).__init__(node_id, x, y, 0, attrs)
+        
+
+class CityWay(OSMWay):
+    """docstring for Way"""
+
+    def __init__(self, way_id, nodes_id, is_highway, length):
+        attrs = dict()
+        attrs['name'] = 'road' + str(way_id)
+        attrs['streetWidth'] = 0
+        super(CityWay, self).__init__(way_id, nodes_id, attrs)
+
+        self.is_highway = is_highway
+        self.length = length
+
+    def set_width(self, width):
+        self.attrs['streetWdith'] = width
+
+
+
