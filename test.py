@@ -31,11 +31,11 @@ def draw():
                 color = 'k',
                 linewidth = segment.meta['width']
             )
-    for node in city.nodes:
-        if len(node.r) >= 2 and len(set(node.r)) == 2:
-            print(node.r)
-            l = str(node.r)
-            plt.plot(node.x, node.y, 'ro', label=l)
+    # for node in city.nodes:
+    #     if len(node.r) >= 2 and len(set(node.r)) == 2:
+    #         print(node.r)
+    #         l = str(node.r)
+    #         plt.plot(node.x, node.y, 'ro', label=l)
     
     plt.show()
 

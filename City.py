@@ -73,8 +73,14 @@ class City(object):
                 meta['width'] = STREET_SEGMENT_WIDTH + \
                     rand_in_limit(STREET_SEGMENT_WIDTH_OFFSET_LIMIT)
             meta['length'] = length
+
+            meta['nodes'] = list()
+            meta['nodes'].append(meta['start_id'])
+            meta['nodes'].append(meta['end_id'])
+
         else:
             meta['length'] += length
+            meta['nodes'].append(meta['end_id'])
 
         self.nodes[meta['start_id']].r.append(meta['id'])
         self.nodes[meta['end_id']].r.append(meta['id'])
