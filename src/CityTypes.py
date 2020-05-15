@@ -1,5 +1,5 @@
-from src.external.Point import *
-from src.external.OSMGenerator import OSMNode, OSMWay
+from external.Point import *
+from external.OSMGenerator import OSMNode, OSMWay
 
 
 class Segment(object):

@@ -1,5 +1,5 @@
 import random
-from src.external.Point import Point
+from Point import Point
 
 
 def min_intersect_degree(d1, d2):

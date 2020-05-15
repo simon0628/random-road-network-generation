@@ -1,8 +1,8 @@
 from __future__ import print_function
 from CityTypes import *
 from Constants import *
-from src.external.Utils import *
-from src.external.Point import *
+from external.Utils import *
+from external.Point import *
 import noise
 import math
 from pyqtree import Index

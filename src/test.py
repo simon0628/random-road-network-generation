@@ -1,9 +1,9 @@
-from src.City import City
+from City import City
 import logging
-from src.external.OSMGenerator import *
+from external.OSMGenerator import *
 import argparse
 
-RUNTIME_DIR = "runtime/"
+RUNTIME_DIR = "../runtime/"
 LOG_DIR = RUNTIME_DIR+"log/"
 DATA_DIR = RUNTIME_DIR+"out/"
 
@@ -27,7 +27,7 @@ def init_logging(debug = False):
             datefmt=DATE_FORMAT,
             filemode='w')
 
-def draw(debug = False):
+def draw(filename, debug = False):
     for segment in city.segments:
         plt.plot(
             [segment.start.x,
@@ -41,15 +41,18 @@ def draw(debug = False):
     if debug:
         for node in city.nodes:
             plt.plot(node.x, node.y, 'ro')
+        plt.show()
 
-    plt.show()
+    plt.savefig(filename, dpi=1024)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='A random road generator')
     parser.add_argument('--debug', type=bool, default=False, help='Is using debug mode')
     parser.add_argument('--road_num', type=int, default=2000, help='Road number to generate')
     parser.add_argument('--generate', type=bool, default=True, help='Should generate road OSM file')
-    parser.add_argument('--file_name', type=str, default='test.osm', help='Output OSM file name')
+    parser.add_argument('--osm_filename', type=str, default='test.osm', help='Output OSM file name')
+    parser.add_argument('--plt_filename', type=str, default='test.png', help='Output OSM file name')
     args = parser.parse_args()
 
     init_logging(args.debug)
@@ -65,10 +68,11 @@ if __name__ == '__main__':
     if args.generate:
         osm = OSMGenerator(city.nodes, city.ways, 1000000)
         print('Writing OSM file...')
-        osm.generate(DATA_DIR + args.file_name, args.debug)
-        print('Written to ' + DATA_DIR + args.file_name)
+        osm.generate(DATA_DIR + args.osm_filename, args.debug)
+        print('Written to ' + DATA_DIR + args.osm_filename)
         print('')
 
     print('Drawing...')
-    draw()
+    draw(DATA_DIR + args.plt_filename)
+    print('Saved to ' + DATA_DIR + args.plt_filename)
     print('All done')
