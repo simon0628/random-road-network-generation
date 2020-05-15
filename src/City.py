@@ -1,8 +1,8 @@
 from __future__ import print_function
-from RoadTypes import *
+from CityTypes import *
 from Constants import *
-from Utils import *
-from Point import *
+from src.external.Utils import *
+from src.external.Point import *
 import noise
 import math
 from pyqtree import Index
@@ -51,8 +51,8 @@ class City(object):
 
 
     def append_segment(self, segment):
-        segment.meta['start_id'] = self.add_node(segment.road.start)
-        segment.meta['end_id'] = self.add_node(segment.road.end)
+        segment.meta['start_id'] = self.add_node(segment.start)
+        segment.meta['end_id'] = self.add_node(segment.end)
         
 
         if segment.meta['new_segment']:
@@ -74,8 +74,8 @@ class City(object):
         # self.nodes[segment.meta['end_id']].r.append(segment.meta['id'])
 
         self.segments.append(segment)
-        self.road_index.insert(segment, (segment.getBox()))
-        logging.info('append road, meta: ' +str(segment.meta) + ' road: ' + segment.road.to_string())
+        self.road_index.insert(segment, (segment.get_box()))
+        logging.info('append road, meta: ' +str(segment.meta) + ' road: ' + segment.to_string())
 
 
     # operating only meta here
@@ -113,13 +113,13 @@ class City(object):
             meta['new_segment'] = False
 
         res = Segment(start, end, delay, meta)
-        logging.debug('gen new road, meta: ' +str(meta) + ' road: ' + res.road.to_string())
+        logging.debug('gen new road, meta: ' +str(meta) + ' road: ' + res.to_string())
 
         return res
 
     def gen_segment_follow(self, previous_segment, dir):
         return self.gen_segment(
-            previous_segment.road.end,
+            previous_segment.end,
             STRENCH_TIME_DELAY_HIGHWAY if previous_segment.meta['highway'] else STRENCH_TIME_DELAY_STREET,
             previous_segment.meta,
             dir,
@@ -132,7 +132,7 @@ class City(object):
             if rand_hit_thershold(HIGHWAY_DEGENERATE_PROBABILITY):
                 new_meta['highway'] = False
                 return self.gen_segment(
-                    previous_segment.road.end,
+                    previous_segment.end,
                     BRANCH_TIME_DELAY_HIGHWAY,
                     new_meta,
                     dir,
@@ -140,7 +140,7 @@ class City(object):
                 )
             else:
                 return self.gen_segment(
-                    previous_segment.road.end,
+                    previous_segment.end,
                     BRANCH_TIME_DELAY_HIGHWAY,
                     new_meta,
                     dir,
@@ -148,7 +148,7 @@ class City(object):
                 )
         else:
             return self.gen_segment(
-                previous_segment.road.end,
+                previous_segment.end,
                 BRANCH_TIME_DELAY_STREET,
                 new_meta,
                 dir,
@@ -158,20 +158,20 @@ class City(object):
     def globalGoals(self, previous_segment):
         proposed_segments = list()
 
-        logging.info("previous: " + previous_segment.road.to_string())
+        logging.info("previous: " + previous_segment.to_string())
 
         if 'snapped' not in previous_segment.meta or not previous_segment.meta['snapped']:
             straight_follow_segment = self.gen_segment_follow(
                 previous_segment, previous_segment.dir() + rand_in_limit(STREET_CURVE_DIRECTION_OFFSET_LIMIT))
             straight_heat = self.heatmap.road_heat(
-                straight_follow_segment.road)
+                straight_follow_segment)
 
             max_heat = None
             max_heat_offset = 0
             for offset in range(-HIGHWAY_CURVE_DIRECTION_OFFSET_LIMIT, HIGHWAY_CURVE_DIRECTION_OFFSET_LIMIT):
                 curve_follow_segment = self.gen_segment_follow(
                     previous_segment, previous_segment.dir() + offset)
-                heat = self.heatmap.road_heat(curve_follow_segment.road)
+                heat = self.heatmap.road_heat(curve_follow_segment)
                 if max_heat is None or heat > max_heat:
                     max_heat = heat
                     max_heat_offset = offset
@@ -181,44 +181,44 @@ class City(object):
             if previous_segment.meta['highway']:
                 logging.info("is highway")
                 proposed_segments.append(curve_follow_segment)
-                logging.info("---gen [highway] curve follow: " + curve_follow_segment.road.to_string())
+                logging.info("---gen [highway] curve follow: " + curve_follow_segment.to_string())
 
                 if max_heat > HIGHWAY_BRANCH_HEAT_THRESHOLD:
                     if rand_hit_thershold(HIGHWAY_BRANCH_RIGHT_PROBABILITY):
-                        leftHighwayBranch = self.gen_segment_branch(
+                        left_highway_branch = self.gen_segment_branch(
                             previous_segment, previous_segment.dir() - 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT))
-                        proposed_segments.append(leftHighwayBranch)
-                        logging.info("---gen [highway] left branch: " + leftHighwayBranch.road.to_string())
+                        proposed_segments.append(left_highway_branch)
+                        logging.info("---gen [highway] left branch: " + left_highway_branch.to_string())
 
                     if rand_hit_thershold(HIGHWAY_BRANCH_RIGHT_PROBABILITY):
-                        rightHighwayBranch = self.gen_segment_branch(
+                        right_highway_branch = self.gen_segment_branch(
                             previous_segment, previous_segment.dir() + 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT))
-                        proposed_segments.append(rightHighwayBranch)
-                        logging.info("---gen [highway] right branch: " + rightHighwayBranch.road.to_string())
+                        proposed_segments.append(right_highway_branch)
+                        logging.info("---gen [highway] right branch: " + right_highway_branch.to_string())
 
             else:
                 if rand_hit_thershold(max_heat*3):
                     proposed_segments.append(curve_follow_segment)
-                    logging.info("---gen [street] follow branch: " + curve_follow_segment.road.to_string())
+                    logging.info("---gen [street] follow branch: " + curve_follow_segment.to_string())
 
             if rand_hit_thershold(straight_heat*3):
                 if rand_hit_thershold(STREET_BRANCH_LEFT_PROBABILITY):
-                    leftBranch = self.gen_segment_branch(previous_segment, previous_segment.dir(
+                    left_branch = self.gen_segment_branch(previous_segment, previous_segment.dir(
                     ) - 90 + rand_in_limit(STREET_BRANCH_DIRECTION_OFFSET_LIMIT))
-                    proposed_segments.append(leftBranch)
-                    logging.info("---gen [highway/street] left branch: " + leftBranch.road.to_string())
+                    proposed_segments.append(left_branch)
+                    logging.info("---gen [highway/street] left branch: " + left_branch.to_string())
 
                 if rand_hit_thershold(STREET_BRANCH_RIGHT_PROBABILITY):
-                    rightBranch = self.gen_segment_branch(previous_segment, previous_segment.dir(
+                    right_branch = self.gen_segment_branch(previous_segment, previous_segment.dir(
                     ) + 90 + rand_in_limit(STREET_BRANCH_DIRECTION_OFFSET_LIMIT))
-                    proposed_segments.append(rightBranch)
-                    logging.info("---gen [highway/street] left branch: " + rightBranch.road.to_string())
+                    proposed_segments.append(right_branch)
+                    logging.info("---gen [highway/street] left branch: " + right_branch.to_string())
 
         return proposed_segments
 
     def localConstraints(self, segment, segments):
         # return True
-        minx, miny, maxx, maxy = segment.getBox()
+        minx, miny, maxx, maxy = segment.get_box()
         matchSegments = self.road_index.intersect(
             (minx - ROAD_SNAP_DISTANCE,
              miny - ROAD_SNAP_DISTANCE,
@@ -230,30 +230,30 @@ class City(object):
             degree = min_intersect_degree(other.dir(), segment.dir())
 
             # 1. intersection check
-            cross = line_cross([segment.road.start, segment.road.end], [
-                               other.road.start, other.road.end])
+            cross = line_cross([segment.start, segment.end], [
+                               other.start, other.end])
             if cross != False:
-                if not cross.equal(segment.road.start) and not cross.equal(segment.road.end):
+                if not cross.equal(segment.start) and not cross.equal(segment.end):
                     # cross other line with small angle
                     if degree < MINIMUM_INTERSECTION_DEVIATION:
                         return False
 
-                    segment.road.end = cross
+                    segment.end = cross
                     segment.meta['snapped'] = True
 
             else:
                 # 2. snap to crossing within radius check
-                if distance_p2p(segment.road.end, other.road.end) <= ROAD_SNAP_DISTANCE:
-                    segment.road.end = other.road.end
+                if distance_p2p(segment.end, other.end) <= ROAD_SNAP_DISTANCE:
+                    segment.end = other.end
                     segment.meta['snapped'] = True
 
                 # 3. intersection within radius check
-                distance = distance_p2l(segment.road.end, other.road)
+                distance = distance_p2l(segment.end, other)
                 if distance <= ROAD_SNAP_DISTANCE and distance > EPSILON:
                     if degree >= MINIMUM_INTERSECTION_DEVIATION:
                         project_point = point_projection(
-                            segment.road.end, other.e.start, other.road.end)
-                        segment.road.end = project_point
+                            segment.end, other.e.start, other.end)
+                        segment.end = project_point
                         segment.meta['snapped'] = True
         return True
 
@@ -280,14 +280,14 @@ class City(object):
             accepted = self.localConstraints(min_segment, self.segments)
             if accepted:
                 self.append_segment(min_segment)
-                newSegments = self.globalGoals(min_segment)
-                for i, newSegment in enumerate(newSegments):
-                    newSegments[i].delay = min_segment.delay + 1 + newSegments[i].delay
+                new_segments = self.globalGoals(min_segment)
+                for i, newSegment in enumerate(new_segments):
+                    new_segments[i].delay = min_segment.delay + 1 + new_segments[i].delay
                     priority_queue.append(newSegment)
 
             else:
                 logging.info('segment is rejected!, which is :')
-                logging.info('   ' + min_segment.road.to_string())
+                logging.info('   ' + min_segment.to_string())
                 logging.info('   is highway: ' + str(min_segment.meta['highway']))
         self.post_process()
         print('')

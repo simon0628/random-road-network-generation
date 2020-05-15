@@ -1,35 +1,28 @@
-from src.Point import *
-from src.OSMGenerator import OSMNode, OSMWay
-
-
-class Road(object):
-    def __init__(self, start, end):
-        super(Road, self).__init__()
-        self.start = start
-        self.end = end
-    def to_string(self):
-        res = 'start: ( %f, %f )' % (self.start.x, self.start.y)
-        res += ' end: ( %f, %f )' % (self.end.x, self.end.y)
-        return res
+from src.external.Point import *
+from src.external.OSMGenerator import OSMNode, OSMWay
 
 
 class Segment(object):
     def __init__(self, start, end, delay, meta):
         super(Segment, self).__init__()
-        self.road = Road(start, end)
+
+        self.start = start
+        self.end = end
+
         # time-step delay before this road is evaluated
         self.delay = 0 if delay is None else delay
-        # meta-information relevant to global goals
+        # meta-information
         self.meta = dict() if meta is None else meta
 
-        self.successor = list()
-        self.predecessor = list()
-
         self.length = distance_p2p(start, end)
-        # self.road_id = None
+
+    def to_string(self):
+        res = 'start: ( %f, %f )' % (self.start.x, self.start.y)
+        res += ' end: ( %f, %f )' % (self.end.x, self.end.y)
+        return res
 
     def dir(self):
-        vector = self.road.end.subtract(self.road.start)
+        vector = self.end.subtract(self.start)
         cross = cross_product_v2v(Point(0, 1), vector)
 
         if cross > 0:
@@ -41,11 +34,11 @@ class Segment(object):
 
         return -1 * sign * angle_v2v(Point(0, 1), vector)
 
-    def getBox(self):
-        x1 = self.road.start.x
-        x2 = self.road.end.x
-        y1 = self.road.start.y
-        y2 = self.road.end.y
+    def get_box(self):
+        x1 = self.start.x
+        x2 = self.end.x
+        y1 = self.start.y
+        y2 = self.end.y
         return min([x1, x2]), min([y1, y2]), max([x1, x2]), max([y1, y2])
 
 

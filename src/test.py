@@ -1,6 +1,6 @@
 from src.City import City
 import logging
-from src.OSMGenerator import *
+from src.external.OSMGenerator import *
 import argparse
 
 RUNTIME_DIR = "runtime/"
@@ -30,10 +30,10 @@ def init_logging(debug = False):
 def draw(debug = False):
     for segment in city.segments:
         plt.plot(
-            [segment.road.start.x,
-             segment.road.end.x],
-            [segment.road.start.y,
-             segment.road.end.y],
+            [segment.start.x,
+             segment.end.x],
+            [segment.start.y,
+             segment.end.y],
             color='k' if segment.meta['highway'] else 'b',
             linewidth=2 if segment.meta['highway'] else 1
         )
