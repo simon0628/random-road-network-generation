@@ -39,14 +39,11 @@ class OSMGenerator(object):
         self.scale = scale
 
     def generate(self, filename, debug=False):
-        if debug:
-            for node in self.nodes:
-                plt.plot(node.x, node.y, node.color)
-            plt.show()
 
-        print('OSM info: ')
-        print('    node number: ' + str(len(self.nodes)))
-        print('    way number: ' + str(len(self.ways)))
+        if debug:
+            print('OSM info: ')
+            print('    node number: ' + str(len(self.nodes)))
+            print('    way number: ' + str(len(self.ways)))
 
         # headers
         osm_attrib = {'version': "0.6", 'generator': "xodr_OSM_converter", 'copyright': "Simon",

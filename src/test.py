@@ -9,23 +9,24 @@ DATA_DIR = RUNTIME_DIR+"out/"
 
 
 def init_logging(debug = False):
-    LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
-    DATE_FORMAT = "%m/%d/%Y %H:%M:%S %p"
-
-    logging.basicConfig(
-        filename=LOG_DIR + 'road-gen-INFO.log',
-        level=logging.INFO,
-        format=LOG_FORMAT,
-        datefmt=DATE_FORMAT,
-        filemode='w')
+    log_format = "%(asctime)s - %(levelname)s - %(message)s"
+    date_format = "%m/%d/%Y %H:%M:%S %p"
 
     if debug:
         logging.basicConfig(
             filename=LOG_DIR + 'road-gen-DEBUG.log',
             level=logging.DEBUG,
-            format=LOG_FORMAT,
-            datefmt=DATE_FORMAT,
+            format=log_format,
+            datefmt=date_format,
             filemode='w')
+    else:
+        logging.basicConfig(
+            filename=LOG_DIR + 'road-gen-INFO.log',
+            level=logging.INFO,
+            format=log_format,
+            datefmt=date_format,
+            filemode='w')
+
 
 def draw(filename, debug = False):
     for segment in city.segments:
@@ -39,11 +40,11 @@ def draw(filename, debug = False):
         )
 
     if debug:
-        for node in city.nodes:
-            plt.plot(node.x, node.y, 'ro')
+        # for node in city.nodes:
+        #     plt.plot(node.x, node.y, 'r.')
         plt.show()
 
-    plt.savefig(filename, dpi=1024)
+    plt.savefig(filename, dpi=512)
 
 
 if __name__ == '__main__':
@@ -73,6 +74,6 @@ if __name__ == '__main__':
         print('')
 
     print('Drawing...')
-    draw(DATA_DIR + args.plt_filename)
+    draw(DATA_DIR + args.plt_filename, args.debug)
     print('Saved to ' + DATA_DIR + args.plt_filename)
     print('All done')

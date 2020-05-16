@@ -23,6 +23,13 @@ class Point(object):
         return math.sqrt((t.y - self.y)**2 + (t.x - self.x)**2)
 
 
+class Line(object):
+    def __init__(self, start, end):
+        super(Line, self).__init__()
+        self.start = start
+        self.end = end
+
+
 def distance_p2l(p, l):
     a = l.end.y-l.start.y
     b = l.start.x-l.end.x

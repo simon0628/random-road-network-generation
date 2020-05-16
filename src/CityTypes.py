@@ -1,4 +1,4 @@
-from external.Point import *
+from external.BaseTypes import *
 from external.OSMGenerator import OSMNode, OSMWay
 
 

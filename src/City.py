@@ -2,7 +2,7 @@ from __future__ import print_function
 from CityTypes import *
 from Constants import *
 from external.Utils import *
-from external.Point import *
+from external.BaseTypes import *
 import noise
 import math
 from pyqtree import Index
@@ -240,21 +240,21 @@ class City(object):
 
                     segment.end = cross
                     segment.meta['snapped'] = True
-
-            else:
-                # 2. snap to crossing within radius check
-                if distance_p2p(segment.end, other.end) <= ROAD_SNAP_DISTANCE:
-                    segment.end = other.end
-                    segment.meta['snapped'] = True
-
-                # 3. intersection within radius check
-                distance = distance_p2l(segment.end, other)
-                if distance <= ROAD_SNAP_DISTANCE and distance > EPSILON:
-                    if degree >= MINIMUM_INTERSECTION_DEVIATION:
-                        project_point = point_projection(
-                            segment.end, other.e.start, other.end)
-                        segment.end = project_point
-                        segment.meta['snapped'] = True
+            #
+            # else:
+            #     # 2. snap to crossing within radius check
+            #     if distance_p2p(segment.end, other.end) <= ROAD_SNAP_DISTANCE:
+            #         segment.end = other.end
+            #         segment.meta['snapped'] = True
+            #
+            #     # 3. intersection within radius check
+            #     distance = distance_p2l(segment.end, other)
+            #     if distance <= ROAD_SNAP_DISTANCE and distance > EPSILON:
+            #         if degree >= MINIMUM_INTERSECTION_DEVIATION:
+            #             project_point = point_projection(
+            #                 segment.end, other.start, other.end)
+            #             segment.end = project_point
+            #             segment.meta['snapped'] = True
         return True
 
     def generate(self):

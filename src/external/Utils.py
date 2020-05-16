@@ -1,5 +1,5 @@
 import random
-from Point import Point
+from BaseTypes import Point
 
 
 def min_intersect_degree(d1, d2):
@@ -19,7 +19,21 @@ def rand_hit_thershold(thershold):
         return False
 
 
+# q is on line(p,r)
+def on_segment(q, p, r):
+    if ((q.x <= max(p.x, r.x)) and (q.x >= min(p.x, r.x)) and
+           (q.y <= max(p.y, r.y)) and (q.y >= min(p.y, r.y))):
+        return True
+    return False
+
+
+# get the cross of two segments (with begin & end nodes), if not cross returns False
 def line_cross(line1, line2):
+    if line1[0].equal(line2[0]) or line1[0].equal(line2[1]):
+        return line1[0]
+    if line1[1].equal(line2[0]) or line1[1].equal(line2[1]):
+        return line1[1]
+
     def line(p1, p2):
         A = (p1.y - p2.y)
         B = (p2.x - p1.x)
@@ -40,4 +54,9 @@ def line_cross(line1, line2):
     L1 = line(line1[0], line1[1])
     L2 = line(line2[0], line2[1])
 
-    return intersection(L1, L2)
+    res = intersection(L1, L2)
+    return res
+    if res and on_segment(res, line1[0], line1[1]) and on_segment(res, line2[0], line2[1]):
+        return res
+    else:
+        return False
