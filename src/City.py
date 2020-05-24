@@ -34,9 +34,12 @@ class City(object):
             QUADTREE_PARAMS_Y + QUADTREE_PARAMS_H
         ))
 
+    def find_intersect(self, node):
+        return self.node_index.intersect((node.x-10, node.y-10, node.x+10, node.y+10))
+
     def add_node(self, p):
         # search for dup
-        near_node_ids = self.node_index.intersect((p.x, p.y, p.x, p.y))
+        near_node_ids = self.find_intersect(p)
 
         if len(near_node_ids) > 0: # dup exists
             # if the new node A is quite close to an existing node B, use B
@@ -77,7 +80,6 @@ class City(object):
         self.road_index.insert(segment, (segment.get_box()))
         logging.info('append road, meta: ' +str(segment.meta) + ' road: ' + segment.to_string())
 
-
     # operating only meta here
     def gen_segment(self, start, delay, meta, dir, new_segment = True): 
         meta = meta.copy()
@@ -93,7 +95,7 @@ class City(object):
             start.y + length*math.cos(math.radians(dir))
         )
 
-        near_node_ids = self.node_index.intersect((end.x, end.y, end.x, end.y))
+        near_node_ids = self.find_intersect(end)
         if len(near_node_ids) > 0: # dup exists
             # if the new node A is quite close to an existing node B, use B
             end = self.nodes[near_node_ids[0]]
@@ -215,12 +217,6 @@ class City(object):
                     logging.info("---gen [highway/street] left branch: " + right_branch.to_string())
 
         return proposed_segments
-
-    def get_node_insert_index(self, way_id, new_node):
-        for i in range(len(self.ways[way_id])-1):
-            if self.ways[way_id].nodes_id[i].x < new_node.x and self.ways[way_id].nodes_id[i+1].x > new_node.x:
-                return i
-        return len(self.ways[way_id])
 
     def localConstraints(self, segment, segments):
         # return True
