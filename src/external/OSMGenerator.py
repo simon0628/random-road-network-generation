@@ -1,19 +1,20 @@
 import matplotlib.pyplot as plt
 import xml.etree.ElementTree as ET
 from datetime import datetime
+from BaseTypes import Point
 
-class OSMNode(object):
+
+class OSMNode(Point):
     """docstring for Node"""
 
     def __init__(self, node_id, x, y, z, attrs):
 
-        super(OSMNode, self).__init__()
+        super(OSMNode, self).__init__(x, y)
+
         if not isinstance(attrs, dict):
             raise TypeError('attrs should be type of dict')
 
         self.id = node_id
-        self.x = x
-        self.y = y
         self.z = z
         self.attrs = attrs
 

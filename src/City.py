@@ -216,6 +216,12 @@ class City(object):
 
         return proposed_segments
 
+    def get_node_insert_index(self, way_id, new_node):
+        for i in range(len(self.ways[way_id])-1):
+            if self.ways[way_id].nodes_id[i].x < new_node.x and self.ways[way_id].nodes_id[i+1].x > new_node.x:
+                return i
+        return len(self.ways[way_id])
+
     def localConstraints(self, segment, segments):
         # return True
         minx, miny, maxx, maxy = segment.get_box()
@@ -238,8 +244,12 @@ class City(object):
                     if degree < MINIMUM_INTERSECTION_DEVIATION:
                         return False
 
+                    cross_id = self.add_node(cross)
                     segment.end = cross
                     segment.meta['snapped'] = True
+                    # TODO: where should it be inserted
+
+                    self.ways[other.meta['id']].nodes_id.append(cross_id)
             #
             # else:
             #     # 2. snap to crossing within radius check
@@ -299,9 +309,8 @@ class City(object):
                 if segment.meta['length'] > max_length:
                     max_length = segment.meta['length']
 
-
         for way_key, way_value in self.ways.items():
-            width = 0
+            self.ways[way_key].nodes_id = sorted(way_value.nodes_id, key=lambda t: self.nodes[t].x)
             if not way_value.is_highway:
                 if way_value.length * 1.0/ max_length < 0.33:
                     width = 1

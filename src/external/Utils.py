@@ -56,7 +56,4 @@ def line_cross(line1, line2):
 
     res = intersection(L1, L2)
     return res
-    if res and on_segment(res, line1[0], line1[1]) and on_segment(res, line2[0], line2[1]):
-        return res
-    else:
-        return False
+

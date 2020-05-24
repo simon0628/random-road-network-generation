@@ -30,13 +30,14 @@ def init_logging(debug = False):
 
 def draw(filename, debug = False):
     for segment in city.segments:
+        width = city.ways[segment.meta['id']].get_width()
         plt.plot(
             [segment.start.x,
              segment.end.x],
             [segment.start.y,
              segment.end.y],
             color='k' if segment.meta['highway'] else 'b',
-            linewidth=2 if segment.meta['highway'] else 1
+            linewidth=width
         )
 
     if debug:
