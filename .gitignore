@@ -1,5 +1,5 @@
 .idea/
-runtime/log
+runtime
 *.png
 # Byte-compiled / optimized / DLL files
 __pycache__/
