@@ -35,7 +35,7 @@ class City(object):
         ))
 
     def find_intersect(self, node):
-        return self.node_index.intersect((node.x-10, node.y-10, node.x+10, node.y+10))
+        return self.node_index.intersect((node.x-50, node.y-50, node.x+50, node.y+50))
 
     def add_node(self, p):
         # search for dup
@@ -231,6 +231,9 @@ class City(object):
         for other in matchSegments:
             degree = min_intersect_degree(other.dir(), segment.dir())
 
+            if segment.start.equal(other.start) or segment.start.equal(other.end):
+                if on_segment(segment.end, other.start, other.end) :
+                    return False
             # 1. intersection check
             cross = line_cross([segment.start, segment.end], [
                                other.start, other.end])
@@ -306,7 +309,15 @@ class City(object):
                     max_length = segment.meta['length']
 
         for way_key, way_value in self.ways.items():
-            self.ways[way_key].nodes_id = sorted(way_value.nodes_id, key=lambda t: self.nodes[t].x)
+            x0 = self.nodes[way_value.nodes_id[0]].x
+            x1 = self.nodes[way_value.nodes_id[-1]].x
+            y0 = self.nodes[way_value.nodes_id[0]].y
+            y1 = self.nodes[way_value.nodes_id[-1]].y
+            if math.fabs(y1-y0) > math.fabs(x1-x0):
+                self.ways[way_key].nodes_id = sorted(way_value.nodes_id, key=lambda t: self.nodes[t].y)
+            else:
+                self.ways[way_key].nodes_id = sorted(way_value.nodes_id, key=lambda t: self.nodes[t].x)
+
             if not way_value.is_highway:
                 if way_value.length * 1.0/ max_length < 0.33:
                     width = 1
