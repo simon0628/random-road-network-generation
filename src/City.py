@@ -16,7 +16,6 @@ class City(object):
         self.heatmap = HeatMap()
         self.segments = list()
         self.target_size = target_size
-        #self.extra_heatmap = np.zeros()
 
         self.nodes = list()
         self.node_id = 0
@@ -43,6 +42,7 @@ class City(object):
     def add_node(self, p):
         # search for dup
         near_node_ids = self.find_intersect(p)
+        self.heatmap.add_heat(p.x, p.y)
 
         if len(near_node_ids) > 0:  # dup exists
             # if the new node A is quite close to an existing node B, use B
@@ -344,6 +344,17 @@ class City(object):
 
 
 class HeatMap(object):
+    def __init__(self):
+        super(HeatMap, self).__init__()
+        self.extra_heatmap = np.zeros((1200, 1200))
+
+    def add_heat(self, x, y):
+        ind_x = int(x / 40 + 500)
+        ind_y = int(y / 40 + 500)
+        for i in range(ind_x-HEAT_ACCUMULATE_RADIUS, ind_x+HEAT_ACCUMULATE_RADIUS):
+            for j in range(ind_y - HEAT_ACCUMULATE_RADIUS, ind_y + HEAT_ACCUMULATE_RADIUS):
+                self.extra_heatmap[i, j] += HEAT_ACCUMULATE_RATE
+
     def road_heat(self, road):
         return (self.population(road.start.x, road.start.y) + self.population(road.end.x, road.end.y)) / 2
 
@@ -351,4 +362,7 @@ class HeatMap(object):
         value1 = (noise.snoise2(x / 10000, y / 10000) + 1) / 2
         value2 = (noise.snoise2(x / 20000 + 500, y / 20000 + 500) + 1) / 2
         value3 = (noise.snoise2(x / 20000 + 1000, y / 20000 + 1000) + 1) / 2
-        return pow((value1 * value2 + value3) / 2, 2)
+
+        ind_x = x / 40 + 500
+        ind_y = y / 40 + 500
+        return pow((value1 * value2 + value3) / 2, 2) + self.extra_heatmap[ind_x, ind_y]
