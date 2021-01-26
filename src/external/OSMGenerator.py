@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import xml.etree.ElementTree as ET
 from datetime import datetime
-from BaseTypes import Point
+from external.BaseTypes import Point
 
 
 class OSMNode(Point):

@@ -1,5 +1,5 @@
 import random
-from BaseTypes import Point
+from external.BaseTypes import Point
 
 
 def min_intersect_degree(d1, d2):
