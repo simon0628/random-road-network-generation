@@ -43,7 +43,7 @@ Saved to ../runtime/out/test.png
 All done
 ```
 
-### Pro
+### Develop
 For those who are interested in developing or debugging the project, some pro instructions are provided.
 
 `run.sh` is a well-sealed runtime shell, which will create basic running environment and run `python src/test.py`.
