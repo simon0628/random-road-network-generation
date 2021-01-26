@@ -13,7 +13,7 @@ Also, the repo provides some methods to debug the generating process, including 
 # Usage
 
 ### Deploy
-- python 3.7
+- **python 3.9**
 - matplotlib==3.3.3
 - noise==1.2.2
 - numpy==1.16.2
