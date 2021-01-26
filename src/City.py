@@ -7,6 +7,8 @@ import noise
 import math
 from pyqtree import Index
 import logging
+import numpy as np
+
 
 class City(object):
     def __init__(self, target_size):
@@ -14,7 +16,7 @@ class City(object):
         self.heatmap = HeatMap()
         self.segments = list()
         self.target_size = target_size
-        
+
         self.nodes = list()
         self.node_id = 0
         self.ways = dict()
@@ -35,28 +37,29 @@ class City(object):
         ))
 
     def find_intersect(self, node):
-        return self.node_index.intersect((node.x-50, node.y-50, node.x+50, node.y+50))
+        return self.node_index.intersect((node.x - 10, node.y - 10, node.x + 10, node.y + 10))
 
     def add_node(self, p):
         # search for dup
         near_node_ids = self.find_intersect(p)
+        self.heatmap.add_heat(p.x, p.y)
 
-        if len(near_node_ids) > 0: # dup exists
+        if len(near_node_ids) > 0:  # dup exists
             # if the new node A is quite close to an existing node B, use B
             return near_node_ids[0]
         else:
             # add a new node
             self.nodes.append(CityNode(self.node_id, p.x, p.y))
             self.node_index.insert(
-                self.node_id, (p.x-NODE_SNAP_DISTANCE, p.y-NODE_SNAP_DISTANCE, p.x+NODE_SNAP_DISTANCE, p.y+NODE_SNAP_DISTANCE))
+                self.node_id, (
+                p.x - NODE_SNAP_DISTANCE, p.y - NODE_SNAP_DISTANCE, p.x + NODE_SNAP_DISTANCE, p.y + NODE_SNAP_DISTANCE))
             self.node_id = self.node_id + 1
+            logging.info("add new segment: id=%d, (%f, %f)" % (self.node_id-1, p.x, p.y))
             return self.node_id - 1
-
 
     def append_segment(self, segment):
         segment.meta['start_id'] = self.add_node(segment.start)
         segment.meta['end_id'] = self.add_node(segment.end)
-        
 
         if segment.meta['new_segment']:
             segment.meta['id'] = self.road_id
@@ -65,25 +68,25 @@ class City(object):
             segment.meta['nodes'].append(segment.meta['start_id'])
             segment.meta['nodes'].append(segment.meta['end_id'])
 
-            self.ways[segment.meta['id']] = CityWay(segment.meta['id'], segment.meta['nodes'], segment.meta['highway'], segment.meta['length'])
+            self.ways[segment.meta['id']] = CityWay(segment.meta['id'], segment.meta['nodes'], segment.meta['highway'],
+                                                    segment.meta['length'])
         else:
             segment.meta['nodes'].append(segment.meta['end_id'])
 
             self.ways[segment.meta['id']].nodes_id.append(segment.meta['end_id'])
             self.ways[segment.meta['id']].length += segment.meta['length']
 
-
         # self.nodes[segment.meta['start_id']].r.append(segment.meta['id'])
         # self.nodes[segment.meta['end_id']].r.append(segment.meta['id'])
 
         self.segments.append(segment)
         self.road_index.insert(segment, (segment.get_box()))
-        logging.info('append road, meta: ' +str(segment.meta) + ' road: ' + segment.to_string())
+        logging.info('append road, meta: ' + str(segment.meta) + ' road: ' + segment.to_string())
 
     # operating only meta here
-    def gen_segment(self, start, delay, meta, dir, new_segment = True): 
+    def gen_segment(self, start, delay, meta, dir, new_segment=True):
         meta = meta.copy()
-        
+
         length = 0
         if meta['highway']:
             length = HIGHWAY_SEGMENT_LENGTH + rand_in_limit(HIGHWAY_SEGMENT_LENGTH_OFFSET_LIMIT)
@@ -91,12 +94,12 @@ class City(object):
             length = STREET_SEGMENT_LENGTH + rand_in_limit(STREET_SEGMENT_LENGTH_OFFSET_LIMIT)
 
         end = Point(
-            start.x + length*math.sin(math.radians(dir)),
-            start.y + length*math.cos(math.radians(dir))
+            start.x + length * math.sin(math.radians(dir)),
+            start.y + length * math.cos(math.radians(dir))
         )
 
         near_node_ids = self.find_intersect(end)
-        if len(near_node_ids) > 0: # dup exists
+        if len(near_node_ids) > 0:  # dup exists
             # if the new node A is quite close to an existing node B, use B
             end = self.nodes[near_node_ids[0]]
 
@@ -106,7 +109,7 @@ class City(object):
                 meta['width'] = HIGHWAY_SEGMENT_WIDTH
             else:
                 meta['width'] = STREET_SEGMENT_WIDTH + \
-                    rand_in_limit(STREET_SEGMENT_WIDTH_OFFSET_LIMIT)
+                                rand_in_limit(STREET_SEGMENT_WIDTH_OFFSET_LIMIT)
             meta['length'] = length
             meta['new_segment'] = True
 
@@ -115,7 +118,7 @@ class City(object):
             meta['new_segment'] = False
 
         res = Segment(start, end, delay, meta)
-        logging.debug('gen new road, meta: ' +str(meta) + ' road: ' + res.to_string())
+        logging.debug('gen new road, meta: ' + str(meta) + ' road: ' + res.to_string())
 
         return res
 
@@ -125,7 +128,7 @@ class City(object):
             STRENCH_TIME_DELAY_HIGHWAY if previous_segment.meta['highway'] else STRENCH_TIME_DELAY_STREET,
             previous_segment.meta,
             dir,
-            new_segment = False
+            new_segment=False
         )
 
     def gen_segment_branch(self, previous_segment, dir):
@@ -138,7 +141,7 @@ class City(object):
                     BRANCH_TIME_DELAY_HIGHWAY,
                     new_meta,
                     dir,
-                    new_segment = True
+                    new_segment=True
                 )
             else:
                 return self.gen_segment(
@@ -146,7 +149,7 @@ class City(object):
                     BRANCH_TIME_DELAY_HIGHWAY,
                     new_meta,
                     dir,
-                    new_segment = True
+                    new_segment=True
                 )
         else:
             return self.gen_segment(
@@ -154,7 +157,7 @@ class City(object):
                 BRANCH_TIME_DELAY_STREET,
                 new_meta,
                 dir,
-                new_segment = True
+                new_segment=True
             )
 
     def globalGoals(self, previous_segment):
@@ -188,22 +191,24 @@ class City(object):
                 if max_heat > HIGHWAY_BRANCH_HEAT_THRESHOLD:
                     if rand_hit_thershold(HIGHWAY_BRANCH_RIGHT_PROBABILITY):
                         left_highway_branch = self.gen_segment_branch(
-                            previous_segment, previous_segment.dir() - 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT))
+                            previous_segment,
+                            previous_segment.dir() - 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT))
                         proposed_segments.append(left_highway_branch)
                         logging.info("---gen [highway] left branch: " + left_highway_branch.to_string())
 
                     if rand_hit_thershold(HIGHWAY_BRANCH_RIGHT_PROBABILITY):
                         right_highway_branch = self.gen_segment_branch(
-                            previous_segment, previous_segment.dir() + 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT))
+                            previous_segment,
+                            previous_segment.dir() + 90 + rand_in_limit(HIGHWAY_BRANCH_DIRECTION_OFFSET_LIMIT))
                         proposed_segments.append(right_highway_branch)
                         logging.info("---gen [highway] right branch: " + right_highway_branch.to_string())
 
             else:
-                if rand_hit_thershold(max_heat*3):
+                if rand_hit_thershold(max_heat * 3):
                     proposed_segments.append(curve_follow_segment)
                     logging.info("---gen [street] follow branch: " + curve_follow_segment.to_string())
 
-            if rand_hit_thershold(straight_heat*3):
+            if rand_hit_thershold(straight_heat * 3):
                 if rand_hit_thershold(STREET_BRANCH_LEFT_PROBABILITY):
                     left_branch = self.gen_segment_branch(previous_segment, previous_segment.dir(
                     ) - 90 + rand_in_limit(STREET_BRANCH_DIRECTION_OFFSET_LIMIT))
@@ -231,19 +236,25 @@ class City(object):
         for other in matchSegments:
             degree = min_intersect_degree(other.dir(), segment.dir())
 
-            if segment.start.equal(other.start) or segment.start.equal(other.end):
-                if on_segment(segment.end, other.start, other.end) :
-                    return False
             # 1. intersection check
             cross = line_cross([segment.start, segment.end], [
-                               other.start, other.end])
+                other.start, other.end])
+            if segment.start.equal(other.start) and cross < MINIMUM_INTERSECTION_DEVIATION:
+                logging.info("segment is checked out due to cross in small angel, segment id: " + str(
+                    segment.meta['id']) + "other id: " + str(other.meta['id']))
+                return False
+
             if cross != False:
                 if not cross.equal(segment.start) and not cross.equal(segment.end):
                     # cross other line with small angle
                     if degree < MINIMUM_INTERSECTION_DEVIATION:
+                        logging.info("segment is checked out due to cross in small angel, segment id: " + str(
+                            segment.meta['id']) + "other id: " + str(other.meta['id']))
                         return False
 
                     cross_id = self.add_node(cross)
+                    logging.info("segment is snapped, segment id: " + str(segment.meta['id']) + " other id: " + str(
+                        other.meta['id']) + " cross id: " + str(cross_id))
                     segment.end = cross
                     segment.meta['snapped'] = True
                     # TODO: where should it be inserted
@@ -276,7 +287,7 @@ class City(object):
 
         while len(priority_queue) > 0 and len(self.segments) < self.target_size:
 
-            print('\r %d / %d' % (len(self.segments)+1, self.target_size ), end='')
+            print('\r %d / %d' % (len(self.segments) + 1, self.target_size), end='')
             # pop smallest road(ti, ri, qi) from Q
             min_t = None
             min_index = 0
@@ -313,16 +324,16 @@ class City(object):
             x1 = self.nodes[way_value.nodes_id[-1]].x
             y0 = self.nodes[way_value.nodes_id[0]].y
             y1 = self.nodes[way_value.nodes_id[-1]].y
-            if math.fabs(y1-y0) > math.fabs(x1-x0):
+            if math.fabs(y1 - y0) > math.fabs(x1 - x0):
                 self.ways[way_key].nodes_id = sorted(way_value.nodes_id, key=lambda t: self.nodes[t].y)
             else:
                 self.ways[way_key].nodes_id = sorted(way_value.nodes_id, key=lambda t: self.nodes[t].x)
 
             if not way_value.is_highway:
-                if way_value.length * 1.0/ max_length < 0.33:
+                if way_value.length * 1.0 / max_length < 0.33:
                     width = 1
 
-                elif way_value.length * 1.0/max_length < 0.66:
+                elif way_value.length * 1.0 / max_length < 0.66:
                     width = 2
 
                 else:
@@ -330,16 +341,28 @@ class City(object):
             else:
                 width = HIGHWAY_SEGMENT_WIDTH
             self.ways[way_key].set_width(width)
-        
+
 
 class HeatMap(object):
+    def __init__(self):
+        super(HeatMap, self).__init__()
+        self.extra_heatmap = np.zeros((1200, 1200))
+
+    def add_heat(self, x, y):
+        ind_x = int(x / 40 + 500)
+        ind_y = int(y / 40 + 500)
+        for i in range(ind_x-HEAT_ACCUMULATE_RADIUS, ind_x+HEAT_ACCUMULATE_RADIUS):
+            for j in range(ind_y - HEAT_ACCUMULATE_RADIUS, ind_y + HEAT_ACCUMULATE_RADIUS):
+                self.extra_heatmap[i, j] += HEAT_ACCUMULATE_RATE
+
     def road_heat(self, road):
-        return (self.population(road.start.x, road.start.y) + self.population(road.end.x, road.end.y))/2
+        return (self.population(road.start.x, road.start.y) + self.population(road.end.x, road.end.y)) / 2
 
     def population(self, x, y):
-        value1 = (noise.snoise2(x/10000, y/10000) + 1) / 2
-        value2 = (noise.snoise2(x/20000 + 500, y/20000 + 500) + 1) / 2
-        value3 = (noise.snoise2(x/20000 + 1000, y/20000 + 1000) + 1) / 2
-        return pow((value1 * value2 + value3) / 2, 2)
+        value1 = (noise.snoise2(x / 10000, y / 10000) + 1) / 2
+        value2 = (noise.snoise2(x / 20000 + 500, y / 20000 + 500) + 1) / 2
+        value3 = (noise.snoise2(x / 20000 + 1000, y / 20000 + 1000) + 1) / 2
 
-
+        ind_x = x / 40 + 500
+        ind_y = y / 40 + 500
+        return pow((value1 * value2 + value3) / 2, 2) + self.extra_heatmap[ind_x, ind_y]

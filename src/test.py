@@ -2,6 +2,8 @@ from City import City
 import logging
 from external.OSMGenerator import *
 import argparse
+import numpy as np
+import matplotlib.pyplot as plt
 
 RUNTIME_DIR = "../runtime/"
 LOG_DIR = RUNTIME_DIR+"log/"
@@ -29,6 +31,14 @@ def init_logging(debug = False):
 
 
 def draw(filename, debug = False):
+
+    u = np.linspace(-20000, 20000, 1000)
+    x, y = np.meshgrid(u, u)
+    f = np.vectorize(city.heatmap.population)
+    z = f(x, y)
+    # z = heatmap.population(x, y)
+    plt.contourf(x, y, z)
+
     for segment in city.segments:
         width = city.ways[segment.meta['id']].get_width()
         plt.plot(
@@ -36,7 +46,7 @@ def draw(filename, debug = False):
              segment.end.x],
             [segment.start.y,
              segment.end.y],
-            color='k' if segment.meta['highway'] else 'b',
+            color='k',
             linewidth=width
         )
 
